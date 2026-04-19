@@ -1,9 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import "leaflet/dist/leaflet.css";
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useScenario } from "@/lib/context";
 import { riskTier } from "@/lib/validate";
-import type { PerBusMetric, ScenarioKind, TomorrowForecast } from "@/lib/types";
+import type {
+  CircleMarker,
+  LayerGroup,
+  Map as LeafletMap,
+} from "leaflet";
+import type {
+  PerBusMetric,
+  ScenarioKind,
+  TomorrowForecast,
+} from "@/lib/types";
 
 const SCENARIO_ACCENT: Record<ScenarioKind, string> = {
   baseline: "#4fdbc8",
@@ -23,13 +34,39 @@ const TIER_COLOR = {
   primary: "#4fdbc8",
 } as const;
 
-const VIEW_W = 1000;
-const VIEW_H = 600;
+// IEEE-123 is a synthetic distribution feeder (~3.5 MW nameplate) and has no
+// real geo coordinates. We pin its normalized [0, 1] layout into a fixed real
+// Phoenix lat/lon bbox so the basemap and the topology share one projection
+// and bus markers always overlap the same streets at any zoom level.
+//
+// Anchor: ~4.0 km E/W × 2.4 km N/S box centered on downtown Phoenix
+// (≈ 33.4484°N, -112.0740°W, near the Capitol / City Hall block).
+// 1° lat ≈ 110.95 km · 1° lng @ 33.45° ≈ 92.91 km
+const PHX_BOUNDS = {
+  lat_min: 33.4376,
+  lat_max: 33.4592,
+  lng_min: -112.09555,
+  lng_max: -112.05245,
+} as const;
+
+const PHX_CENTER: [number, number] = [
+  (PHX_BOUNDS.lat_min + PHX_BOUNDS.lat_max) / 2,
+  (PHX_BOUNDS.lng_min + PHX_BOUNDS.lng_max) / 2,
+];
+
+function projectToLatLng(x_norm: number, y_norm: number): [number, number] {
+  const lng =
+    PHX_BOUNDS.lng_min + x_norm * (PHX_BOUNDS.lng_max - PHX_BOUNDS.lng_min);
+  // y_norm grows downward in the source layout; flip so high-y → south.
+  const lat =
+    PHX_BOUNDS.lat_max - y_norm * (PHX_BOUNDS.lat_max - PHX_BOUNDS.lat_min);
+  return [lat, lng];
+}
 
 interface HoverState {
   bus: string;
-  cx: number;
-  cy: number;
+  lat: number;
+  lng: number;
   metric: PerBusMetric;
 }
 
@@ -37,6 +74,19 @@ export default function TacticalMap() {
   const { active, compareWith, current, baseline, heat, ev, topology } =
     useScenario();
   const [hover, setHover] = useState<HoverState | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+  const [mapReady, setMapReady] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const leafletRef = useRef<typeof import("leaflet") | null>(null);
+
+  const edgesLayerRef = useRef<LayerGroup | null>(null);
+  const nodesLayerRef = useRef<LayerGroup | null>(null);
+  const compareLayerRef = useRef<LayerGroup | null>(null);
+  const evLayerRef = useRef<LayerGroup | null>(null);
 
   const compareScenario: TomorrowForecast | null =
     compareWith === null
@@ -49,36 +99,95 @@ export default function TacticalMap() {
   const compareAccent =
     compareWith !== null ? SCENARIO_ACCENT[compareWith] : null;
 
-  // Project nodes into viewBox + index by bus name.
-  const nodeXY = useMemo(() => {
-    const m = new Map<string, { cx: number; cy: number }>();
-    for (const n of topology.nodes) {
-      m.set(n.bus, {
-        cx: n.x_norm * VIEW_W,
-        cy: n.y_norm * VIEW_H,
-      });
-    }
-    return m;
-  }, [topology.nodes]);
+  // Initialize Leaflet exactly once.
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+    let cancelled = false;
+    (async () => {
+      const L = (await import("leaflet")).default;
+      if (cancelled || !containerRef.current) return;
 
-  const edgeLines = useMemo(
-    () =>
-      topology.edges
-        .map((e, i) => {
-          const a = nodeXY.get(e.from);
-          const b = nodeXY.get(e.to);
-          if (!a || !b) return null;
-          return { key: i, x1: a.cx, y1: a.cy, x2: b.cx, y2: b.cy, kind: e.kind };
-        })
-        .filter((x): x is NonNullable<typeof x> => x !== null),
-    [topology.edges, nodeXY],
-  );
+      const map = L.map(containerRef.current, {
+        center: PHX_CENTER,
+        zoom: 14,
+        minZoom: 12,
+        maxZoom: 17,
+        zoomControl: false,
+        attributionControl: false,
+      });
+
+      // Split base + labels so we can crank label opacity/contrast separately.
+      L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png",
+        {
+          subdomains: "abcd",
+          maxZoom: 19,
+          attribution: "OSM · CARTO",
+        },
+      ).addTo(map);
+
+      L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png",
+        {
+          subdomains: "abcd",
+          maxZoom: 19,
+          opacity: 0.5,
+          pane: "tilePane",
+          className: "tactical-map-labels",
+        },
+      ).addTo(map);
+
+      L.control
+        .attribution({ position: "bottomright", prefix: false })
+        .addTo(map);
+      L.control.zoom({ position: "bottomright" }).addTo(map);
+
+      map.fitBounds(
+        [
+          [PHX_BOUNDS.lat_min, PHX_BOUNDS.lng_min],
+          [PHX_BOUNDS.lat_max, PHX_BOUNDS.lng_max],
+        ],
+        { padding: [10, 10] },
+      );
+
+      const edgesLayer = L.layerGroup().addTo(map);
+      const nodesLayer = L.layerGroup().addTo(map);
+      const compareLayer = L.layerGroup().addTo(map);
+      const evLayer = L.layerGroup().addTo(map);
+
+      mapRef.current = map;
+      leafletRef.current = L;
+      edgesLayerRef.current = edgesLayer;
+      nodesLayerRef.current = nodesLayer;
+      compareLayerRef.current = compareLayer;
+      evLayerRef.current = evLayer;
+      setMapReady(true);
+
+      // Force a redraw once the parent flex layout has settled.
+      setTimeout(() => map.invalidateSize(), 50);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+      leafletRef.current = null;
+      edgesLayerRef.current = null;
+      nodesLayerRef.current = null;
+      compareLayerRef.current = null;
+      evLayerRef.current = null;
+    };
+  }, []);
 
   // Per-bus metric lookup for current scenario.
   const perBus = current.per_bus;
-  const busNames = topology.nodes.map((n) => n.bus);
+  const busNames = useMemo(
+    () => topology.nodes.map((n) => n.bus),
+    [topology.nodes],
+  );
 
-  // Top-10 at-risk for pulsing markers.
   const topRiskSet = useMemo(() => {
     const withMetric = busNames
       .map((b) => ({ bus: b, m: perBus[b] }))
@@ -89,7 +198,6 @@ export default function TacticalMap() {
     return new Set(withMetric.slice(0, 10).map((x) => x.bus));
   }, [busNames, perBus]);
 
-  // Top-10 at-risk for compareWith scenario (dashed ghost rings).
   const compareTopRiskSet = useMemo(() => {
     if (!compareScenario) return new Set<string>();
     const cmpPerBus = compareScenario.per_bus;
@@ -102,7 +210,6 @@ export default function TacticalMap() {
     return new Set(withMetric.slice(0, 10).map((x) => x.bus));
   }, [busNames, compareScenario]);
 
-  // Top-20 highest peak_load_kw → residential proxy for EV overlay.
   const evBusSet = useMemo(() => {
     if (active !== "ev") return new Set<string>();
     const withMetric = busNames
@@ -114,29 +221,174 @@ export default function TacticalMap() {
     return new Set(withMetric.slice(0, 20).map((x) => x.bus));
   }, [busNames, perBus, active]);
 
-  // Heat tint for background
+  // Edges layer (depends only on topology — stable between renders).
+  useEffect(() => {
+    const L = leafletRef.current;
+    const layer = edgesLayerRef.current;
+    if (!L || !layer || !mapReady) return;
+    layer.clearLayers();
+
+    const xy = new Map<string, [number, number]>();
+    for (const n of topology.nodes) {
+      xy.set(n.bus, projectToLatLng(n.x_norm, n.y_norm));
+    }
+
+    for (const e of topology.edges) {
+      const a = xy.get(e.from);
+      const b = xy.get(e.to);
+      if (!a || !b) continue;
+      L.polyline([a, b], {
+        color: e.kind === "switch" ? "#5a6360" : "#7a8a87",
+        weight: e.kind === "switch" ? 1 : 1.4,
+        opacity: e.kind === "switch" ? 0.55 : 0.9,
+        dashArray: e.kind === "switch" ? "3 3" : undefined,
+        interactive: false,
+      }).addTo(layer);
+    }
+  }, [topology, mapReady]);
+
+  // Node layer (depends on perBus + topology + topRiskSet).
+  useEffect(() => {
+    const L = leafletRef.current;
+    const layer = nodesLayerRef.current;
+    if (!L || !layer || !mapReady) return;
+    layer.clearLayers();
+
+    for (const n of topology.nodes) {
+      const ll = projectToLatLng(n.x_norm, n.y_norm);
+      const metric = perBus[n.bus];
+      const risk = metric?.risk_score ?? 0;
+      const tier = riskTier(risk);
+      const fill = TIER_COLOR[tier];
+      const isTop = topRiskSet.has(n.bus);
+      const r = isTop ? 7 : 4;
+
+      if (isTop) {
+        L.circleMarker(ll, {
+          radius: r,
+          color: fill,
+          weight: 2,
+          fill: false,
+          className: "pulse-violation-svg",
+          interactive: false,
+        }).addTo(layer);
+      }
+
+      const marker: CircleMarker = L.circleMarker(ll, {
+        radius: r,
+        color: fill,
+        weight: 0,
+        fillColor: fill,
+        fillOpacity: isTop ? 1 : 0.85,
+        bubblingMouseEvents: false,
+      }).addTo(layer);
+
+      if (metric) {
+        marker.on("mouseover", () => {
+          setHover({ bus: n.bus, lat: ll[0], lng: ll[1], metric });
+        });
+        marker.on("mouseout", () => setHover(null));
+      }
+    }
+  }, [topology, perBus, topRiskSet, mapReady]);
+
+  // Compare-with ghost rings.
+  useEffect(() => {
+    const L = leafletRef.current;
+    const layer = compareLayerRef.current;
+    if (!L || !layer || !mapReady) return;
+    layer.clearLayers();
+    if (!compareAccent) return;
+    for (const bus of compareTopRiskSet) {
+      const node = topology.nodes.find((n) => n.bus === bus);
+      if (!node) continue;
+      const ll = projectToLatLng(node.x_norm, node.y_norm);
+      L.circleMarker(ll, {
+        radius: 10,
+        color: compareAccent,
+        weight: 1,
+        opacity: 0.85,
+        dashArray: "3 2",
+        fill: false,
+        interactive: false,
+      }).addTo(layer);
+    }
+  }, [topology, compareTopRiskSet, compareAccent, mapReady]);
+
+  // EV hotspot rings.
+  useEffect(() => {
+    const L = leafletRef.current;
+    const layer = evLayerRef.current;
+    if (!L || !layer || !mapReady) return;
+    layer.clearLayers();
+    if (active !== "ev") return;
+    for (const bus of evBusSet) {
+      const node = topology.nodes.find((n) => n.bus === bus);
+      if (!node) continue;
+      const ll = projectToLatLng(node.x_norm, node.y_norm);
+      L.circleMarker(ll, {
+        radius: 10,
+        color: "#ffb95f",
+        weight: 1,
+        opacity: 0.7,
+        dashArray: "2 2",
+        fill: false,
+        interactive: false,
+      }).addTo(layer);
+    }
+  }, [topology, evBusSet, active, mapReady]);
+
+  // Re-position hover tooltip on hover change OR on map pan/zoom.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !hover) {
+      setHoverPos(null);
+      return;
+    }
+    const updatePos = () => {
+      const pt = map.latLngToContainerPoint([hover.lat, hover.lng]);
+      setHoverPos({ x: pt.x, y: pt.y });
+    };
+    updatePos();
+    map.on("move", updatePos);
+    map.on("zoom", updatePos);
+    map.on("resize", updatePos);
+    return () => {
+      map.off("move", updatePos);
+      map.off("zoom", updatePos);
+      map.off("resize", updatePos);
+    };
+  }, [hover]);
+
+  // Scenario tint overlay (drawn over the basemap, under chrome).
   const bgGradient =
     active === "heat"
-      ? "radial-gradient(ellipse at center, rgba(255, 185, 95, 0.18) 0%, rgba(17, 19, 25, 0) 70%)"
+      ? "radial-gradient(ellipse at center, rgba(255, 185, 95, 0.22) 0%, rgba(17, 19, 25, 0) 70%)"
       : active === "ev"
-        ? "radial-gradient(ellipse at 60% 70%, rgba(255, 179, 173, 0.12) 0%, rgba(17, 19, 25, 0) 75%)"
+        ? "radial-gradient(ellipse at 60% 70%, rgba(255, 179, 173, 0.16) 0%, rgba(17, 19, 25, 0) 75%)"
         : "none";
 
   return (
-    <div
-      className="relative flex-1 overflow-hidden bg-surface-container-lowest"
-      style={{ backgroundImage: bgGradient }}
-    >
+    <div className="relative flex-1 overflow-hidden bg-surface-container-lowest tactical-map-leaflet">
+      <div ref={containerRef} className="absolute inset-0" />
+
+      {bgGradient !== "none" && (
+        <div
+          className="absolute inset-0 pointer-events-none z-[450]"
+          style={{ backgroundImage: bgGradient, mixBlendMode: "screen" }}
+        />
+      )}
+
       {/* Layer label */}
-      <div className="absolute top-3 left-3 bg-surface/80 p-2 font-mono text-[9px] uppercase border border-outline-variant z-10 tracking-widest">
-        LAYER: IEEE_123_BUS_NETWORK // PROJECTION: AZ_COORD_S01 · SCEN:{" "}
+      <div className="absolute top-3 left-3 bg-surface/85 p-2 font-mono text-[9px] uppercase border border-outline-variant z-[600] tracking-widest pointer-events-none">
+        LAYER: IEEE_123_BUS_NETWORK // BASEMAP: PHX_AZ · SCEN:{" "}
         <span className="text-primary">{active.toUpperCase()}</span>
       </div>
 
       {/* Ghost-layer legend when comparing */}
       {compareWith && compareAccent && (
         <div
-          className="absolute top-3 right-3 bg-surface/85 p-2 font-mono text-[9px] uppercase border z-10 tracking-widest space-y-1"
+          className="absolute top-3 right-3 bg-surface/85 p-2 font-mono text-[9px] uppercase border z-[600] tracking-widest space-y-1 pointer-events-none"
           style={{ borderColor: compareAccent }}
         >
           <div style={{ color: compareAccent }}>GHOST_LAYER</div>
@@ -152,9 +404,7 @@ export default function TacticalMap() {
                 strokeDasharray="3 2"
               />
             </svg>
-            <span>
-              {SCENARIO_LABEL_MAP[compareWith]} TOP-10
-            </span>
+            <span>{SCENARIO_LABEL_MAP[compareWith]} TOP-10</span>
           </div>
           <div className="text-[8px] text-on-surface-variant opacity-70">
             SOLID = ACTIVE · DASHED = COMPARE
@@ -162,8 +412,8 @@ export default function TacticalMap() {
         </div>
       )}
 
-      {/* Legend */}
-      <div className="absolute bottom-3 left-3 bg-surface/80 border border-outline-variant p-2 font-mono text-[9px] uppercase z-10 space-y-1 tracking-widest">
+      {/* Risk legend */}
+      <div className="absolute bottom-3 left-3 bg-surface/85 border border-outline-variant p-2 font-mono text-[9px] uppercase z-[600] space-y-1 tracking-widest pointer-events-none">
         <div className="text-on-surface-variant">RISK_TIER</div>
         <div className="flex items-center gap-2">
           <span
@@ -197,131 +447,14 @@ export default function TacticalMap() {
         )}
       </div>
 
-      <svg
-        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        preserveAspectRatio="xMidYMid meet"
-        className="w-full h-full"
-      >
-        {/* Edges */}
-        <g>
-          {edgeLines.map((e) => (
-            <line
-              key={e.key}
-              x1={e.x1}
-              y1={e.y1}
-              x2={e.x2}
-              y2={e.y2}
-              stroke="#3c4947"
-              strokeOpacity={e.kind === "switch" ? 0.5 : 0.9}
-              strokeWidth={1}
-              strokeDasharray={e.kind === "switch" ? "3 3" : undefined}
-            />
-          ))}
-        </g>
-
-        {/* Nodes */}
-        <g>
-          {topology.nodes.map((n) => {
-            const xy = nodeXY.get(n.bus);
-            if (!xy) return null;
-            const metric = perBus[n.bus];
-            const risk = metric?.risk_score ?? 0;
-            const tier = riskTier(risk);
-            const fill = TIER_COLOR[tier];
-            const isTop = topRiskSet.has(n.bus);
-            const r = isTop ? 7 : 4;
-            return (
-              <g key={n.bus}>
-                {isTop && (
-                  <circle
-                    cx={xy.cx}
-                    cy={xy.cy}
-                    r={r}
-                    fill="none"
-                    stroke={fill}
-                    strokeWidth={2}
-                    className="pulse-violation-svg"
-                  />
-                )}
-                <circle
-                  cx={xy.cx}
-                  cy={xy.cy}
-                  r={r}
-                  fill={fill}
-                  fillOpacity={isTop ? 1 : 0.85}
-                  onMouseEnter={() =>
-                    metric &&
-                    setHover({
-                      bus: n.bus,
-                      cx: xy.cx,
-                      cy: xy.cy,
-                      metric,
-                    })
-                  }
-                  onMouseLeave={() => setHover(null)}
-                  style={{ cursor: "pointer" }}
-                />
-              </g>
-            );
-          })}
-        </g>
-
-        {/* Compare-with ghost rings */}
-        {compareAccent && (
-          <g>
-            {Array.from(compareTopRiskSet).map((bus) => {
-              const xy = nodeXY.get(bus);
-              if (!xy) return null;
-              return (
-                <circle
-                  key={`cmp-${bus}`}
-                  cx={xy.cx}
-                  cy={xy.cy}
-                  r={10}
-                  fill="none"
-                  stroke={compareAccent}
-                  strokeOpacity={0.85}
-                  strokeWidth={1}
-                  strokeDasharray="3 2"
-                />
-              );
-            })}
-          </g>
-        )}
-
-        {/* EV overlay */}
-        {active === "ev" && (
-          <g>
-            {Array.from(evBusSet).map((bus) => {
-              const xy = nodeXY.get(bus);
-              if (!xy) return null;
-              return (
-                <circle
-                  key={`ev-${bus}`}
-                  cx={xy.cx}
-                  cy={xy.cy}
-                  r={10}
-                  fill="none"
-                  stroke="#ffb95f"
-                  strokeOpacity={0.7}
-                  strokeWidth={1}
-                  strokeDasharray="2 2"
-                />
-              );
-            })}
-          </g>
-        )}
-      </svg>
-
-      {/* Hover tooltip */}
-      {hover && (
+      {hover && hoverPos && (
         <div
-          className="absolute pointer-events-none bg-surface-container-high border border-primary p-2 font-mono text-[10px] uppercase shadow-2xl z-20"
+          className="absolute pointer-events-none bg-surface-container-high border border-primary p-2 font-mono text-[10px] uppercase shadow-2xl z-[700]"
           style={{
-            left: `${(hover.cx / VIEW_W) * 100}%`,
-            top: `${(hover.cy / VIEW_H) * 100}%`,
+            left: hoverPos.x,
+            top: hoverPos.y,
             transform: "translate(12px, 12px)",
-            minWidth: 180,
+            minWidth: 200,
           }}
         >
           <div className="flex items-center gap-2 mb-1">
@@ -352,7 +485,15 @@ export default function TacticalMap() {
             </p>
             <p className="flex justify-between gap-4">
               <span className="text-on-surface-variant">RATING</span>
-              <span>{(hover.metric.rating_kw / 1000).toFixed(2)} MW</span>
+              <span>
+                {(hover.metric.rating_kw / 1000).toFixed(2)} MW
+              </span>
+            </p>
+            <p className="flex justify-between gap-4">
+              <span className="text-on-surface-variant">GEO</span>
+              <span>
+                {hover.lat.toFixed(4)}, {hover.lng.toFixed(4)}
+              </span>
             </p>
           </div>
         </div>
