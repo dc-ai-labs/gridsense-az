@@ -89,7 +89,7 @@ export default function MissionControl() {
         </div>
         <div className="space-y-1.5">
           <div className="flex justify-between items-center text-[10px]">
-            <span>LOAD_FACTOR</span>
+            <span>PEAK_vs_REF</span>
             <div className="flex items-center gap-2">
               {/* Delta badge — only shown when not baseline */}
               {Math.abs(deltaPct) >= 0.1 && (
@@ -136,7 +136,7 @@ export default function MissionControl() {
             />
           </div>
           <div className="flex justify-between text-[9px] text-on-surface-variant">
-            <span>BASELINE_REF</span>
+            <span>BASELINE_PEAK</span>
             <span>{capacityDisplay} MW</span>
           </div>
         </div>

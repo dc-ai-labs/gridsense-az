@@ -1,6 +1,6 @@
 {
-  "iso": "2026-04-19T15:45:25.688513Z",
-  "nws_source": "replay",
+  "iso": "2026-04-19T16:11:30.488476Z",
+  "nws_source": "live",
   "hours_forecast": 24,
-  "git_sha": "1ae808451f9478fead9198ca002656a1b282aedc"
+  "git_sha": "2da76afcb41f192abd67b5383dd2e46f0ddaedbf"
 }
