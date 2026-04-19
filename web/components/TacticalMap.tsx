@@ -7,6 +7,8 @@ import { useScenario } from "@/lib/context";
 import { riskTier } from "@/lib/validate";
 import type {
   CircleMarker,
+  HeatLayer,
+  Layer,
   LayerGroup,
   Map as LeafletMap,
 } from "leaflet";
@@ -35,6 +37,21 @@ const TIER_COLOR = {
   secondary: "#ffb95f",
   primary: "#4fdbc8",
 } as const;
+
+// Shared color stops for the leaflet.heat gradient AND the legend bar so
+// they stay in visual parity. primary → secondary → tertiary → error.
+const HEAT_GRADIENT: Record<number, string> = {
+  0.0: "#4fdbc8",
+  0.4: "#ffb95f",
+  0.7: "#ffb3ad",
+  1.0: "#ffb4ab",
+};
+
+// CSS linear-gradient mirroring HEAT_GRADIENT for the legend ramp.
+const HEAT_GRADIENT_CSS =
+  "linear-gradient(to right, #4fdbc8 0%, #ffb95f 40%, #ffb3ad 70%, #ffb4ab 100%)";
+
+type HeatMode = "off" | "risk" | "load";
 
 // IEEE-123 is a synthetic distribution feeder (~3.5 MW nameplate) and has no
 // real geo coordinates. We pin its normalized [0, 1] layout into a fixed real
@@ -89,6 +106,7 @@ export default function TacticalMap() {
     null,
   );
   const [mapReady, setMapReady] = useState(false);
+  const [heatMode, setHeatMode] = useState<HeatMode>("risk");
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -99,6 +117,8 @@ export default function TacticalMap() {
   const compareLayerRef = useRef<LayerGroup | null>(null);
   const evLayerRef = useRef<LayerGroup | null>(null);
   const focusLayerRef = useRef<LayerGroup | null>(null);
+  const heatLayerRef = useRef<Layer | null>(null);
+  const heatPluginReady = useRef(false);
 
   const compareScenario: TomorrowForecast | null =
     compareWith === null
@@ -117,6 +137,9 @@ export default function TacticalMap() {
     let cancelled = false;
     (async () => {
       const L = (await import("leaflet")).default;
+      // leaflet.heat augments the global L with L.heatLayer — side-effect import.
+      await import("leaflet.heat");
+      heatPluginReady.current = true;
       if (cancelled || !containerRef.current) return;
 
       const map = L.map(containerRef.current, {
@@ -162,6 +185,8 @@ export default function TacticalMap() {
         { padding: [10, 10] },
       );
 
+      // Heat layer added first so it sits below edges/nodes; the actual heat
+      // overlay is installed by the heatMode effect below.
       const edgesLayer = L.layerGroup().addTo(map);
       const nodesLayer = L.layerGroup().addTo(map);
       const compareLayer = L.layerGroup().addTo(map);
@@ -194,6 +219,8 @@ export default function TacticalMap() {
       compareLayerRef.current = null;
       evLayerRef.current = null;
       focusLayerRef.current = null;
+      heatLayerRef.current = null;
+      heatPluginReady.current = false;
     };
   }, []);
 
@@ -262,6 +289,65 @@ export default function TacticalMap() {
       }).addTo(layer);
     }
   }, [topology, mapReady]);
+
+  // Heat layer — a real geospatial continuous heatmap via leaflet.heat.
+  // Rebuilds whenever heatMode, per-bus metrics, or topology change.
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    if (!L || !map || !mapReady || !heatPluginReady.current) return;
+
+    // Always detach any existing heat layer before re-adding — prevents
+    // stacked canvases and keeps renders flicker-free on slider drags.
+    if (heatLayerRef.current) {
+      map.removeLayer(heatLayerRef.current);
+      heatLayerRef.current = null;
+    }
+
+    if (heatMode === "off") return;
+
+    // Normalize load to 0..1 by bus-max; risk_score is already 0..1.
+    let maxLoad = 0;
+    if (heatMode === "load") {
+      for (const n of topology.nodes) {
+        const m = perBus[n.bus];
+        if (m && m.peak_load_kw > maxLoad) maxLoad = m.peak_load_kw;
+      }
+      if (maxLoad <= 0) maxLoad = 1;
+    }
+
+    const points: [number, number, number][] = [];
+    for (const n of topology.nodes) {
+      const m = perBus[n.bus];
+      if (!m) continue;
+      const [lat, lng] = projectToLatLng(n.x_norm, n.y_norm);
+      const intensity =
+        heatMode === "risk" ? m.risk_score : m.peak_load_kw / maxLoad;
+      points.push([lat, lng, intensity]);
+    }
+
+    // @types/leaflet.heat augments the Leaflet module with L.heatLayer; the
+    // side-effect import above wires up the runtime implementation.
+    const heat: HeatLayer = L.heatLayer(points, {
+      radius: 35,
+      blur: 25,
+      minOpacity: 0.35,
+      maxZoom: 17,
+      max: 1.0,
+      gradient: HEAT_GRADIENT,
+    });
+    heat.addTo(map);
+
+    // Force heat canvas below the SVG overlay (edges/nodes/focus) so bus
+    // markers stay crisp on top. Leaflet heat creates its own canvas inside
+    // overlayPane; push it behind via CSS z-index tweak.
+    const heatEl = (heat as unknown as { _canvas?: HTMLCanvasElement })._canvas;
+    if (heatEl) {
+      heatEl.style.zIndex = "1";
+    }
+
+    heatLayerRef.current = heat;
+  }, [heatMode, perBus, topology, mapReady]);
 
   // Node layer (depends on perBus + topology + topRiskSet).
   useEffect(() => {
@@ -482,24 +568,10 @@ export default function TacticalMap() {
     };
   }, [hover]);
 
-  // Scenario tint overlay (drawn over the basemap, under chrome).
-  const bgGradient =
-    active === "heat"
-      ? "radial-gradient(ellipse at center, rgba(255, 185, 95, 0.22) 0%, rgba(17, 19, 25, 0) 70%)"
-      : active === "ev"
-        ? "radial-gradient(ellipse at 60% 70%, rgba(255, 179, 173, 0.16) 0%, rgba(17, 19, 25, 0) 75%)"
-        : "none";
-
   return (
     <div className="relative flex-1 overflow-hidden bg-surface-container-lowest tactical-map-leaflet">
       <div ref={containerRef} className="absolute inset-0" />
 
-      {bgGradient !== "none" && (
-        <div
-          className="absolute inset-0 pointer-events-none z-[450]"
-          style={{ backgroundImage: bgGradient, mixBlendMode: "screen" }}
-        />
-      )}
 
       {/* Layer label */}
       <div className="absolute top-3 left-3 bg-surface/85 p-2 font-mono text-[9px] uppercase border border-outline-variant z-[600] tracking-widest pointer-events-none">
@@ -539,10 +611,52 @@ export default function TacticalMap() {
         </div>
       )}
 
-      {/* Ghost-layer legend when comparing */}
+      {/* Heatmap legend + toggle (top-right) */}
+      <div className="absolute top-3 right-3 z-[600] bg-surface/85 border border-outline-variant p-2 font-mono text-[9px] uppercase tracking-widest w-[186px]">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-on-surface-variant">HEATMAP</span>
+          <span className="text-primary">
+            {heatMode === "off" ? "—" : heatMode.toUpperCase()}
+          </span>
+        </div>
+        <div className="flex gap-1 mb-2">
+          {(["off", "risk", "load"] as const).map((mode) => {
+            const on = heatMode === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setHeatMode(mode)}
+                className={
+                  "flex-1 px-1 py-0.5 border font-mono text-[9px] uppercase tracking-widest cursor-pointer transition-colors " +
+                  (on
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-outline-variant text-on-surface-variant hover:border-outline hover:text-on-surface")
+                }
+              >
+                {mode}
+              </button>
+            );
+          })}
+        </div>
+        <div
+          className={
+            "h-2 border border-outline-variant " +
+            (heatMode === "off" ? "opacity-30" : "")
+          }
+          style={{ backgroundImage: HEAT_GRADIENT_CSS }}
+        />
+        <div className="flex justify-between text-[8px] text-on-surface-variant mt-0.5 tracking-normal">
+          <span>0.0</span>
+          <span>0.5</span>
+          <span>1.0</span>
+        </div>
+      </div>
+
+      {/* Ghost-layer legend when comparing (stacked below heatmap legend) */}
       {compareWith && compareAccent && (
         <div
-          className="absolute top-3 right-3 bg-surface/85 p-2 font-mono text-[9px] uppercase border z-[600] tracking-widest space-y-1 pointer-events-none"
+          className="absolute top-[120px] right-3 bg-surface/85 p-2 font-mono text-[9px] uppercase border z-[600] tracking-widest space-y-1 pointer-events-none"
           style={{ borderColor: compareAccent }}
         >
           <div style={{ color: compareAccent }}>GHOST_LAYER</div>

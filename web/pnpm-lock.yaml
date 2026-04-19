@@ -11,6 +11,9 @@ importers:
       leaflet:
         specifier: ^1.9.4
         version: 1.9.4
+      leaflet.heat:
+        specifier: ^0.2.0
+        version: 0.2.0
       next:
         specifier: 14.2.15
         version: 14.2.15(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -27,6 +30,9 @@ importers:
       '@types/leaflet':
         specifier: ^1.9.21
         version: 1.9.21
+      '@types/leaflet.heat':
+        specifier: ^0.2.5
+        version: 0.2.5
       '@types/node':
         specifier: 20.14.10
         version: 20.14.10
@@ -180,6 +186,9 @@ packages:
 
   '@types/geojson@7946.0.16':
     resolution: {integrity: sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg==}
+
+  '@types/leaflet.heat@0.2.5':
+    resolution: {integrity: sha512-wmDePJPn2vhW9BScsWTV4pSfWayhdDwXuWIQzUuaJkvk5DCHsYsIegTD7tybo38E/0mxpuWODKV/LhsxPESWJg==}
 
   '@types/leaflet@1.9.21':
     resolution: {integrity: sha512-TbAd9DaPGSnzp6QvtYngntMZgcRk+igFELwR2N99XZn7RXUdKgsXMR+28bUO0rPsWp8MIu/f47luLIQuSLYv/w==}
@@ -415,6 +424,9 @@ packages:
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
+
+  leaflet.heat@0.2.0:
+    resolution: {integrity: sha512-Cd5PbAA/rX3X3XKxfDoUGi9qp78FyhWYurFg3nsfhntcM/MCNK08pRkf4iEenO1KNqwVPKCmkyktjW3UD+h9bQ==}
 
   leaflet@1.9.4:
     resolution: {integrity: sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==}
@@ -798,6 +810,10 @@ snapshots:
 
   '@types/geojson@7946.0.16': {}
 
+  '@types/leaflet.heat@0.2.5':
+    dependencies:
+      '@types/leaflet': 1.9.21
+
   '@types/leaflet@1.9.21':
     dependencies:
       '@types/geojson': 7946.0.16
@@ -1003,6 +1019,8 @@ snapshots:
   jiti@1.21.7: {}
 
   js-tokens@4.0.0: {}
+
+  leaflet.heat@0.2.0: {}
 
   leaflet@1.9.4: {}
 
