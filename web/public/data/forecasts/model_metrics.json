@@ -1,9 +1,9 @@
 {
-  "train_mae_kw": 2370.12,
-  "val_mae_kw": 3525.18,
-  "test_mae_kw": 4574.04,
-  "persistence_mae_kw": 5603.75,
-  "improvement_pct": 18.38,
+  "train_mae_kw": 2370.1220703125,
+  "val_mae_kw": 3525.181396484375,
+  "test_mae_kw": 4574.03955078125,
+  "persistence_mae_kw": 5603.752034886913,
+  "improvement_pct": 18.37541129041844,
   "n_params": 59890,
   "top_drivers": [
     {
@@ -16,11 +16,11 @@
     },
     {
       "name": "dewpoint_c",
-      "ig": 0.15
+      "ig": 0.14
     },
     {
       "name": "is_weekend",
-      "ig": 0.08
+      "ig": 0.09
     },
     {
       "name": "dow_sin",
