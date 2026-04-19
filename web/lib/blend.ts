@@ -32,6 +32,7 @@ import type {
   OpenDssSnapshot,
   PerBusMetric,
   QuantileHour,
+  RecommendedAction,
   RiskLeaderboardRow,
   ScenarioPreset,
   TomorrowForecast,
@@ -227,6 +228,27 @@ function blendWeather(
   };
 }
 
+/** Pick which preset's recommended_actions best match the current slider
+ *  state. Mirrors the "heatActive / evActive" thresholds the UI surfaces:
+ *  a slider crossing half the anchor point is considered "engaged". When
+ *  both axes are engaged we interleave heat + EV top-2. */
+function selectActions(
+  tempDeltaF: number,
+  evPenetrationPct: number,
+  baselineActions: RecommendedAction[],
+  heatActions: RecommendedAction[],
+  evActions: RecommendedAction[],
+): RecommendedAction[] {
+  const heatActive = tempDeltaF >= TEMP_ANCHOR_F * 0.5;
+  const evActive = evPenetrationPct >= EV_ANCHOR_PCT * 0.5;
+  if (heatActive && evActive) {
+    return [...heatActions.slice(0, 2), ...evActions.slice(0, 2)];
+  }
+  if (heatActive) return heatActions.slice(0, 5);
+  if (evActive) return evActions.slice(0, 5);
+  return baselineActions.slice(0, 5);
+}
+
 function pickOpenDss(
   preset: ScenarioPreset,
   baseline: OpenDssSnapshot,
@@ -328,6 +350,12 @@ export function blendForecast(input: BlendInput): TomorrowForecast {
     opendss: blendedOpenDss,
     weather: blendedWeather,
     top_drivers: baseline.top_drivers,
-    recommended_actions: baseline.recommended_actions,
+    recommended_actions: selectActions(
+      tempDeltaF,
+      evPenetrationPct,
+      baseline.recommended_actions,
+      heat.recommended_actions,
+      ev.recommended_actions,
+    ),
   };
 }

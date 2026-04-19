@@ -370,3 +370,95 @@ describe("blendForecast — user regression: (-5F, 100% EV) must not drop below 
     expect(blended.feeder_rollup.peak_mw).toBeCloseTo(expectedPeak, 2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Action-blending tests — verify recommended_actions tracks slider state
+// ---------------------------------------------------------------------------
+
+describe("blendForecast recommended_actions selection", () => {
+  const BASE_ACTIONS: RecommendedAction[] = [
+    { label: "BASE1", severity: "primary" },
+    { label: "BASE2", severity: "primary" },
+  ];
+  const HEAT_ACTIONS: RecommendedAction[] = [
+    { label: "HEAT1", severity: "secondary" },
+    { label: "HEAT2", severity: "secondary" },
+    { label: "HEAT3", severity: "secondary" },
+  ];
+  const EV_ACTIONS: RecommendedAction[] = [
+    { label: "EV1", severity: "tertiary" },
+    { label: "EV2", severity: "tertiary" },
+    { label: "EV3", severity: "tertiary" },
+  ];
+
+  function makeFcWithActions(
+    scenario: ScenarioPreset,
+    actions: RecommendedAction[],
+  ): TomorrowForecast {
+    return {
+      scenario,
+      generated_at: "2026-04-19T12:00:00Z",
+      quantiles: makeQuantiles(() => 100),
+      per_bus: makePerBus(100_000, 0.1),
+      risk_leaderboard: makeLeaderboard(100, 0.1),
+      feeder_rollup: {
+        peak_mw: 100,
+        peak_hour: 12,
+        capacity_mw: 3600,
+        load_factor: 100 / 3600,
+      },
+      opendss: makeOpendss(scenario),
+      weather: makeWeather(95),
+      top_drivers: TOP_DRIVERS,
+      recommended_actions: actions,
+    };
+  }
+
+  const baseline = makeFcWithActions("baseline", BASE_ACTIONS);
+  const heat = makeFcWithActions("heat", HEAT_ACTIONS);
+  const ev = makeFcWithActions("ev", EV_ACTIONS);
+
+  function run(t: number, e: number): TomorrowForecast {
+    return blendForecast({
+      baseline,
+      heat,
+      ev,
+      tempDeltaF: t,
+      evPenetrationPct: e,
+    });
+  }
+
+  it("returns baseline actions when neither slider is engaged (0, 0)", () => {
+    const out = run(0, 0);
+    expect(out.recommended_actions.map((a) => a.label)).toEqual(["BASE1", "BASE2"]);
+  });
+
+  it("returns heat actions when only temp slider is engaged (10, 0)", () => {
+    const out = run(10, 0);
+    expect(out.recommended_actions.map((a) => a.label)).toEqual([
+      "HEAT1",
+      "HEAT2",
+      "HEAT3",
+    ]);
+  });
+
+  it("returns ev actions when only EV slider is engaged (0, 50)", () => {
+    const out = run(0, 50);
+    expect(out.recommended_actions.map((a) => a.label)).toEqual([
+      "EV1",
+      "EV2",
+      "EV3",
+    ]);
+  });
+
+  it("returns mixed heat+ev actions when both sliders are engaged (10, 50)", () => {
+    const out = run(10, 50);
+    expect(out.recommended_actions.map((a) => a.label)).toEqual([
+      "HEAT1",
+      "HEAT2",
+      "EV1",
+      "EV2",
+    ]);
+  });
+});
+

@@ -147,21 +147,27 @@ export default function MissionControl() {
         <span className="text-[10px] text-primary tracking-[0.2em] block">
           RECOMMENDED_ACTIONS
         </span>
-        <ul className="space-y-2">
-          {recommended_actions.slice(0, 5).map((a, i) => (
-            <li
-              key={i}
-              className={[
-                "border-l-2 pl-3 py-1.5 bg-surface-container-low text-[10px] leading-tight",
-                SEVERITY_BORDER[a.severity] ?? "border-l-primary",
-              ].join(" ")}
-            >
-              <span className={SEVERITY_TEXT[a.severity] ?? "text-primary"}>
-                {a.label}
-              </span>
-            </li>
-          ))}
-        </ul>
+        {recommended_actions.length === 0 ? (
+          <div className="border-l-2 border-l-primary pl-3 py-1.5 bg-surface-container-low text-[10px] leading-tight">
+            <span className="text-primary">NO IMMEDIATE ACTION REQUIRED — GRID OPERATING WITHIN NORMAL PARAMETERS</span>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {recommended_actions.slice(0, 5).map((a, i) => (
+              <li
+                key={i}
+                className={[
+                  "border-l-2 pl-3 py-1.5 bg-surface-container-low text-[10px] leading-tight",
+                  SEVERITY_BORDER[a.severity] ?? "border-l-primary",
+                ].join(" ")}
+              >
+                <span className={SEVERITY_TEXT[a.severity] ?? "text-primary"}>
+                  {a.label}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

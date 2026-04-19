@@ -13,7 +13,7 @@ function fmt(n: number, digits = 0): string {
 
 export default function ModelMetrics() {
   const { metrics } = useScenario();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   const cards = [
     { label: "TRAIN_MAE", value: fmt(metrics.train_mae_kw), unit: "kW" },
