@@ -1,28 +1,43 @@
 """GridSense-AZ inference helper — load a trained GWNet checkpoint and produce
 per-bus p10/p50/p90 forecasts.
 
+**Training contract (important):**
+``scripts/train.py`` trains the model with raw kW targets — the per-bus
+demand is *not* standardised. ``features.build_hourly_features`` does
+z-score the per-bus **input channel** (``X_node[..., 0]``) using a
+``(y_mean, y_std)`` derived from the raw ``y_kw`` matrix, and it parks
+that scaler in ``bundle.scalers["y_kw"]`` / the metrics sidecar's
+``data.y_scaler`` — but that scaler belongs to the *input*, not the
+*output*. The model therefore learns ``z-scored input → raw-kW output``
+and the predictions can be consumed as-is.
+
+Accordingly, :func:`forecast_from_bundle` does **not** denormalise the
+model output. Earlier versions of this module mistakenly ran the input
+scaler over the predictions and inflated magnitudes by ~43 000×; that
+step has been removed.
+
 The trained checkpoint persisted by ``scripts/train.py`` is a raw
 :class:`torch.nn.Module.state_dict` (an ``OrderedDict`` of tensors, with no
-embedded config). The matching :class:`GWNetConfig` and the target
-standardisation scaler live next to it, in ``data/models/metrics.json``
+embedded config). The matching :class:`GWNetConfig` and the training
+input-channel scaler live next to it, in ``data/models/metrics.json``
 (under ``"config"`` and ``"data.y_scaler"`` respectively). We reconstruct the
 model from that sidecar, load the weights, set ``eval()``, and expose two
 thin helpers:
 
 * :func:`load_predictor` — load the checkpoint into a CPU ``GWNet`` ready
-  for inference. Returns the (model, y_scaler, config-dict) triple bundled
-  in a ``LoadedPredictor`` wrapper so callers never have to re-read the
-  sidecar on subsequent forecasts.
+  for inference. Returns the model, the reconstructed config, and the
+  training input-channel scaler bundled in a ``LoadedPredictor`` wrapper
+  so callers never have to re-read the sidecar on subsequent forecasts.
 * :func:`forecast_from_bundle` — slice the last ``t_in`` hours off a
-  :class:`FeatureBundle`, run a single forward pass, denormalise back to kW,
-  and return a :class:`Forecast` dataclass with ``p10 / p50 / p90`` arrays
-  shaped ``[T_out, N_nodes]`` together with timestamp + bus-name
+  :class:`FeatureBundle`, run a single forward pass, and return a
+  :class:`Forecast` dataclass with ``p10 / p50 / p90`` arrays (already in
+  raw kW) shaped ``[T_out, N_nodes]`` together with timestamp + bus-name
   metadata.
 
 The sidecar lookup is resilient: if ``metrics.json`` is missing we fall
-back to :class:`GWNetConfig` defaults (which match the v0 training run) and
-to the bundle's own ``y_kw`` scaler; the dashboard can still produce a
-forecast in that case.
+back to :class:`GWNetConfig` defaults (which match the v0 training run)
+and to the bundle's own input-channel scaler; the dashboard can still
+produce a forecast in that case.
 """
 
 from __future__ import annotations
@@ -80,9 +95,9 @@ class Forecast:
     """Per-bus quantile forecast over a fixed horizon.
 
     Attributes:
-        p10: Lower-quantile forecast in kW, shape ``[T_out, N_nodes]``.
-        p50: Median forecast in kW, shape ``[T_out, N_nodes]``.
-        p90: Upper-quantile forecast in kW, shape ``[T_out, N_nodes]``.
+        p10: Lower-quantile forecast in raw kW, shape ``[T_out, N_nodes]``.
+        p50: Median forecast in raw kW, shape ``[T_out, N_nodes]``.
+        p90: Upper-quantile forecast in raw kW, shape ``[T_out, N_nodes]``.
         timestamps: Forecast timestamps, one per horizon step (length ``T_out``).
         bus_names: Ordered bus names, one per column of p10/p50/p90.
     """
@@ -100,12 +115,20 @@ class LoadedPredictor:
 
     Streamlit callers can hold this behind an ``@st.cache_resource`` so the
     checkpoint is loaded once per process, not once per rerun.
+
+    Note on ``y_scaler``:
+        The ``(mean, std)`` stored here is the *input-channel* scaler that
+        ``features.build_hourly_features`` applied to ``X_node[..., 0]``.
+        It is surfaced purely for display / diagnostic use (e.g. the
+        dashboard caption). The model's output is already in raw kW — we
+        do **not** use this scaler to post-process predictions.
     """
 
     model: GWNet
     config: GWNetConfig
-    #: Training-time target scaler ``(mean, std)`` in kW. Used to denormalise
-    #: the model's output back from z-scored to physical units.
+    #: Training-time input-channel scaler ``(mean, std)`` in kW. Kept for
+    #: diagnostics only — the model's output is raw kW and needs no
+    #: denormalisation.
     y_scaler: tuple[float, float]
 
 
@@ -139,7 +162,11 @@ def _config_from_metrics(metrics: dict[str, Any]) -> GWNetConfig:
 
 
 def _y_scaler_from_metrics(metrics: dict[str, Any]) -> tuple[float, float] | None:
-    """Return ``(mean, std)`` from ``metrics["data"]["y_scaler"]`` if present."""
+    """Return ``(mean, std)`` from ``metrics["data"]["y_scaler"]`` if present.
+
+    This is the *input-channel* scaler (see :class:`LoadedPredictor`), not
+    an output scaler — inference does not touch it.
+    """
     data = metrics.get("data") or {}
     scaler = data.get("y_scaler")
     if not scaler or len(scaler) != 2:
@@ -157,15 +184,17 @@ def load_predictor(
     Args:
         ckpt_path: Path to the ``state_dict`` saved by ``scripts/train.py``.
         metrics_path: Path to the training metrics sidecar providing the
-            exact :class:`GWNetConfig` and the target ``y_scaler`` used
-            during training. Falls back to :class:`GWNetConfig` defaults
-            and a ``(0.0, 1.0)`` identity scaler when missing.
+            exact :class:`GWNetConfig` and the training input-channel
+            scaler. Falls back to :class:`GWNetConfig` defaults and a
+            ``(0.0, 1.0)`` identity scaler when missing.
         device: PyTorch device string. Forecast payloads are small, so
             ``"cpu"`` is the sensible default even on GPU boxes.
 
     Returns:
         A :class:`LoadedPredictor` bundling the model (in ``eval()`` mode),
-        the reconstructed :class:`GWNetConfig`, and the target scaler.
+        the reconstructed :class:`GWNetConfig`, and the training
+        input-channel scaler (carried for diagnostics only — see
+        :class:`LoadedPredictor`).
 
     Raises:
         FileNotFoundError: If ``ckpt_path`` does not exist.
@@ -204,40 +233,6 @@ def load_predictor(
 # ---------------------------------------------------------------------------
 
 
-def _standardise_y(y_kw: np.ndarray, y_mean: float, y_std: float) -> np.ndarray:
-    """Apply the training-time z-score to raw kW so it matches ``X_node``."""
-    if y_std < 1e-12:
-        return y_kw - y_mean
-    return (y_kw - y_mean) / y_std
-
-
-def _denormalise_y(y_std_arr: np.ndarray, y_mean: float, y_std: float) -> np.ndarray:
-    """Inverse of :func:`_standardise_y`."""
-    if y_std < 1e-12:
-        return y_std_arr + y_mean
-    return y_std_arr * y_std + y_mean
-
-
-def _resolve_y_scaler(
-    predictor: LoadedPredictor, bundle: FeatureBundle
-) -> tuple[float, float]:
-    """Pick the scaler to invert at inference.
-
-    Order of preference:
-
-    1. The scaler baked into the metrics sidecar (exact training scaler).
-    2. The scaler inside the feature bundle (``scalers["y_kw"]``) — a sane
-       fallback when the sidecar is absent.
-    3. An identity ``(0.0, 1.0)`` as last resort.
-    """
-    if predictor.y_scaler != (0.0, 1.0):
-        return predictor.y_scaler
-    scaler = bundle.scalers.get("y_kw")
-    if scaler is not None:
-        return float(scaler[0]), float(scaler[1])
-    return 0.0, 1.0
-
-
 def _future_timestamps(last_ts: pd.Timestamp, horizon: int) -> list[datetime]:
     """Build the ``horizon`` hourly timestamps starting one hour after ``last_ts``."""
     future = pd.date_range(
@@ -253,10 +248,12 @@ def forecast_from_bundle(
     bundle: FeatureBundle,
     t_in: int = 24,
     t_out: int = 6,
-    *,
-    y_scaler: tuple[float, float] | None = None,
 ) -> Forecast:
-    """Run one forward pass and denormalise to per-bus kW.
+    """Run one forward pass and return per-bus kW forecasts.
+
+    Targets are raw kW by the training contract (see module docstring), so
+    no denormalisation is needed at inference — the model's output is
+    returned verbatim, modulo a monotone-quantile sort.
 
     The window taken is the *trailing* ``t_in`` hours of ``bundle`` (i.e. the
     most-recent observations), under the implicit assumption that the bundle
@@ -265,41 +262,32 @@ def forecast_from_bundle(
 
     Args:
         predictor: Either a fully-loaded :class:`LoadedPredictor`, or a bare
-            :class:`GWNet` (in which case ``y_scaler`` must be passed
-            explicitly or embedded in the bundle).
+            :class:`GWNet`. Both behave identically at inference; the
+            ``LoadedPredictor`` wrapper just bundles the reconstructed
+            config + diagnostic scaler alongside the model.
         bundle: Aligned feature bundle from
             :func:`gridsense.features.build_hourly_features`.
         t_in: Input-history length in hours. Must match the model's
             training config.
         t_out: Output-horizon length in hours. Must match the model's
             training config.
-        y_scaler: Optional explicit ``(mean, std)`` to use for denormalising
-            predictions back to kW. If ``None``, taken from ``predictor``
-            when it is a :class:`LoadedPredictor`, else from
-            ``bundle.scalers["y_kw"]``.
 
     Returns:
-        :class:`Forecast` with p10/p50/p90 arrays shaped ``[t_out, N]``,
-        ``t_out`` forward timestamps, and the bundle's bus-name ordering.
+        :class:`Forecast` with p10/p50/p90 arrays in raw kW shaped
+        ``[t_out, N]``, ``t_out`` forward timestamps, and the bundle's
+        bus-name ordering.
 
     Raises:
         ValueError: If the bundle is shorter than ``t_in`` hours, or the
             node count does not match the model's configured ``n_nodes``.
     """
     # ------------------------------------------------------------------
-    # Predictor / scaler resolution
+    # Predictor resolution
     # ------------------------------------------------------------------
     if isinstance(predictor, LoadedPredictor):
         model = predictor.model
-        if y_scaler is None:
-            y_scaler = _resolve_y_scaler(predictor, bundle)
     else:
         model = predictor
-        if y_scaler is None:
-            scaler = bundle.scalers.get("y_kw")
-            y_scaler = (float(scaler[0]), float(scaler[1])) if scaler else (0.0, 1.0)
-
-    y_mean, y_std = y_scaler
 
     # ------------------------------------------------------------------
     # Shape guards
@@ -355,7 +343,7 @@ def forecast_from_bundle(
     out_np = out.squeeze(0).detach().cpu().numpy()  # [T_out, N, Q]
 
     # ------------------------------------------------------------------
-    # Denormalise each quantile channel back to kW
+    # Pick p10 / p50 / p90 slices — outputs are already in raw kW.
     # ------------------------------------------------------------------
     quantiles = tuple(model.config.quantiles)
     # Map the standard p10 / p50 / p90 levels onto the trained quantiles.
@@ -371,19 +359,9 @@ def forecast_from_bundle(
     i50 = _idx_of(0.5)
     i90 = _idx_of(0.9)
 
-    p10_std = out_np[..., i10]  # [T_out, N]
-    p50_std = out_np[..., i50]
-    p90_std = out_np[..., i90]
-
-    p10 = _denormalise_y(p10_std, y_mean, y_std)
-    p50 = _denormalise_y(p50_std, y_mean, y_std)
-    p90 = _denormalise_y(p90_std, y_mean, y_std)
-
-    # Re-sort after denorm (monotone transform preserves order but only when
-    # y_std > 0; be safe when the scaler is degenerate).
-    stacked = np.stack([p10, p50, p90], axis=-1)
-    stacked.sort(axis=-1)
-    p10, p50, p90 = stacked[..., 0], stacked[..., 1], stacked[..., 2]
+    p10 = out_np[..., i10]  # [T_out, N]
+    p50 = out_np[..., i50]
+    p90 = out_np[..., i90]
 
     # ------------------------------------------------------------------
     # Timestamps + bus names

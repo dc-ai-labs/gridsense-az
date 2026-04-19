@@ -8,19 +8,20 @@ Covers:
 * The forecast shape contract: ``[T_out, N_nodes]`` per quantile, with
   ``T_out`` future timestamps and ``N_nodes`` bus names.
 * The monotone-quantile guarantee (``p10 <= p50 <= p90``).
+* The training contract: the model outputs raw kW, so predictions are NOT
+  denormalised at inference — magnitudes should already be plausible.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import pytest
 import torch
 
-from gridsense.features import FeatureBundle
+from gridsense.features import FeatureBundle, build_hourly_features
 from gridsense.model import GWNet, GWNetConfig
 from gridsense.predictor import (
     DEFAULT_CKPT_PATH,
@@ -86,7 +87,10 @@ def test_load_predictor_reconstructs_config() -> None:
     assert tuple(predictor.config.quantiles) == (0.1, 0.5, 0.9)
     # Model is in eval() mode so BN stats / dropout stay frozen.
     assert predictor.model.training is False
-    # Scaler came from metrics.json (non-identity).
+    # The scaler surfaced on the predictor is the input-channel scaler
+    # (used by features.py on X_node[..., 0]), retained for diagnostics
+    # only. We still sanity-check it came from metrics.json (non-identity)
+    # when the sidecar is present.
     y_mean, y_std = predictor.y_scaler
     assert y_std > 0.0
     assert y_mean > 0.0  # AZPS demand is strictly positive in the real bundle
@@ -154,9 +158,7 @@ def test_forecast_from_bundle_accepts_bare_model() -> None:
     model.eval()
 
     bundle = _synthetic_bundle(t=cfg.t_in + 4, n=cfg.n_nodes)
-    forecast = forecast_from_bundle(
-        model, bundle, t_in=cfg.t_in, t_out=cfg.t_out, y_scaler=(0.0, 1.0)
-    )
+    forecast = forecast_from_bundle(model, bundle, t_in=cfg.t_in, t_out=cfg.t_out)
     assert forecast.p50.shape == (cfg.t_out, cfg.n_nodes)
 
 
@@ -171,11 +173,14 @@ def test_forecast_raises_on_short_bundle() -> None:
         forecast_from_bundle(predictor, bundle, t_in=cfg.t_in, t_out=cfg.t_out)
 
 
-def test_forecast_denormalises_via_explicit_scaler() -> None:
-    """Passing ``y_scaler=(0, 1)`` suppresses denormalisation (identity).
+def test_forecast_output_is_raw_kw_no_denormalisation() -> None:
+    """The y_scaler on LoadedPredictor must NOT affect the forecast.
 
-    We then compare against a predictor that uses a real scaler and assert
-    the outputs differ — the denormalisation step is actually running.
+    Training contract: the model's output is already in raw kW. Any value
+    sitting in ``LoadedPredictor.y_scaler`` is a diagnostic tag for the
+    input-channel scaler — :func:`forecast_from_bundle` must ignore it.
+    Two predictors that share the same model weights but carry different
+    ``y_scaler`` tags must produce identical forecasts.
     """
     torch.manual_seed(0)
     cfg = GWNetConfig()
@@ -183,18 +188,81 @@ def test_forecast_denormalises_via_explicit_scaler() -> None:
     model.eval()
     bundle = _synthetic_bundle(t=cfg.t_in + 4, n=cfg.n_nodes)
 
-    identity = forecast_from_bundle(
-        model, bundle, t_in=cfg.t_in, t_out=cfg.t_out, y_scaler=(0.0, 1.0)
+    predictor_identity = LoadedPredictor(model=model, config=cfg, y_scaler=(0.0, 1.0))
+    predictor_scaled = LoadedPredictor(
+        model=model, config=cfg, y_scaler=(30_000.0, 5_000.0)
     )
-    rescaled = forecast_from_bundle(
-        model, bundle, t_in=cfg.t_in, t_out=cfg.t_out, y_scaler=(30_000.0, 5_000.0)
+
+    fc_identity = forecast_from_bundle(
+        predictor_identity, bundle, t_in=cfg.t_in, t_out=cfg.t_out
     )
-    # Same shape, different values.
-    assert identity.p50.shape == rescaled.p50.shape
-    assert not np.allclose(identity.p50, rescaled.p50)
+    fc_scaled = forecast_from_bundle(
+        predictor_scaled, bundle, t_in=cfg.t_in, t_out=cfg.t_out
+    )
+
+    # Bitwise-identical forecasts regardless of the tag: same model, same
+    # inputs, no denormalisation step that could pick up the tag.
+    assert np.array_equal(fc_identity.p10, fc_scaled.p10)
+    assert np.array_equal(fc_identity.p50, fc_scaled.p50)
+    assert np.array_equal(fc_identity.p90, fc_scaled.p90)
 
 
 def test_load_predictor_missing_file() -> None:
     """A clearly-missing checkpoint raises ``FileNotFoundError``."""
     with pytest.raises(FileNotFoundError):
         load_predictor(ckpt_path=Path("/tmp/does/not/exist.pt"))
+
+
+# ---------------------------------------------------------------------------
+# Magnitude regression — catches the 43 000× blow-up bug
+# ---------------------------------------------------------------------------
+
+
+_REAL_BUNDLE_READY = (
+    DEFAULT_CKPT_PATH.exists()
+    and (Path(__file__).resolve().parent.parent / "data" / "raw").exists()
+)
+
+
+@pytest.mark.skipif(
+    not _REAL_BUNDLE_READY,
+    reason="trained checkpoint or data/raw not present",
+)
+def test_forecast_magnitudes_realistic() -> None:
+    """End-to-end sanity check: system-total MW lands in a plausible AZPS range.
+
+    The previous predictor (pre-fix) multiplied the model output by the
+    input-channel std (~43 000) and added the mean, which inflated
+    system-total forecasts to ~200 GW — ~30× above the AZPS all-time peak.
+    This regression asserts that a summer-window forecast sums to between
+    2 000 and 12 000 MW (AZPS summer typical: 4–8 GW).
+    """
+    data_root = Path(__file__).resolve().parent.parent / "data" / "raw"
+    predictor = load_predictor()
+    bundle = build_hourly_features(
+        "2023-08-01", "2023-08-08", data_root=data_root
+    )
+    forecast = forecast_from_bundle(
+        predictor,
+        bundle,
+        t_in=predictor.config.t_in,
+        t_out=predictor.config.t_out,
+    )
+
+    # System total in MW per forecast hour.
+    system_mw = forecast.p50.sum(axis=1) / 1000.0
+    assert system_mw.shape == (predictor.config.t_out,)
+    assert np.all(system_mw > 2_000.0), (
+        f"system total {system_mw.tolist()} MW below AZPS floor — "
+        "possible mis-scaled forecast."
+    )
+    assert np.all(system_mw < 12_000.0), (
+        f"system total {system_mw.tolist()} MW above AZPS ceiling — "
+        "the output denormalisation bug has regressed."
+    )
+
+    # Per-bus p50 should sit in the kW range — not GW, not W.
+    assert forecast.p50.min() > -5_000.0  # tolerate tiny negatives
+    assert forecast.p50.max() < 500_000.0
+    # Mean per-bus load should be comfortably positive.
+    assert forecast.p50.mean() > 1_000.0
