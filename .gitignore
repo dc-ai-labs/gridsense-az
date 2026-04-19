@@ -56,3 +56,13 @@ hf_space_stage/
 data/models/*.pt
 !data/models/gwnet_v0.pt
 data/models/train.log
+
+# Internal planning / scratch (kept locally, not submitted)
+BLOCKERS.md
+dump.md
+PLAN.md
+REBUILD_PLAN.md
+RESUME.md
+TASKS.md
+TODO.md
+

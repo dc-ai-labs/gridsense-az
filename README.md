@@ -10,6 +10,18 @@ Built for the ASU Energy Hackathon — APS "AI for Energy" Challenge.
 - Dashboard (Vercel): https://gridsense-az.vercel.app
 - ML Space (HF): https://dc-ai-labs-gridsense-az.hf.space/
 
+## Documentation
+
+Rubric-aligned deep dives live under [`docs/`](docs/):
+
+- [docs/AI_MODEL_CARD.md](docs/AI_MODEL_CARD.md) — model, training, metrics, calibration, limitations
+- [docs/METRICS.md](docs/METRICS.md) — every number we report + the risk-score formula
+- [docs/PHYSICS.md](docs/PHYSICS.md) — Kirchhoff / Ohm, IEEE 123, OpenDSS snapshot usage, ANSI C84.1
+- [docs/PRACTICALITY.md](docs/PRACTICALITY.md) — target utility customer, integration path, pricing, regulatory
+- [docs/DATA.md](docs/DATA.md) — NOAA / NWS / EIA-930 / IEEE 123 sources, attribution, reproducibility
+- [ARCHITECTURE.md](ARCHITECTURE.md) — end-to-end data / model / frontend architecture
+- [reports/gwnet_v1.md](reports/gwnet_v1.md) — long-form training eval report
+
 ## What's in this repo
 
 | Path | What it is |
