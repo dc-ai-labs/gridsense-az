@@ -50,3 +50,7 @@ notebooks/.ipynb_checkpoints/
 node_modules/
 .next/
 hf_space_stage/
+
+# Trained model artifacts — shipped via HF Space + Hub, not git.
+data/models/*.pt
+data/models/train.log

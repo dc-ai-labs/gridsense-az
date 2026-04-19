@@ -1,0 +1,51 @@
+{
+  "baseline_mae": 5603.752034886913,
+  "config": {
+    "d_hidden": 32,
+    "dropout": 0.1,
+    "f_exog": 11,
+    "f_node": 1,
+    "learn_adj": true,
+    "n_blocks": 4,
+    "n_layers_per_block": 2,
+    "n_nodes": 132,
+    "quantiles": [
+      0.1,
+      0.5,
+      0.9
+    ],
+    "t_in": 24,
+    "t_out": 6
+  },
+  "data": {
+    "end": "2023-10-01",
+    "n_nodes": 132,
+    "n_times": 11688,
+    "source": "real",
+    "start": "2022-06-01",
+    "test_windows": 1725,
+    "train_windows": 8152,
+    "val_windows": 1724,
+    "y_scaler": [
+      30560.744119843206,
+      43357.151662510674
+    ]
+  },
+  "epochs": 200,
+  "hyper": {
+    "batch_size": 128,
+    "device": "cuda",
+    "lr": 0.002,
+    "scheduler": "cosine",
+    "seed": 1337,
+    "t_in": 24,
+    "t_out": 6,
+    "warmup_epochs": 10
+  },
+  "improvement_pct": 18.37541129041844,
+  "n_params": 59890,
+  "test_mae": 4574.03955078125,
+  "train_mae": 2370.1220703125,
+  "train_seconds": 547.916393995285,
+  "val_mae": 3525.181396484375
+}
