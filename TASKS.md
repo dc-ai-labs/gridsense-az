@@ -51,3 +51,13 @@ Deploy: https://huggingface.co/spaces/dchanda/gridsense-az (pending T+9)
   - Nit (deferred / stretch-only): requirements.txt omits pytorch-forecasting + mapie (both §3.3 stretch).
   - Nit (monitoring): hf_space torch CPU wheel ~700 MB; watch HF Space 10-min build budget.
   - Nit (non-blocking): brief .docx + PLAN.v1.md.bak committed at repo root; intentional, bloats clone.
+
+- **2026-04-18 T+1 · ml-trainer GWNet + quantile head + training notebook (SHA 8e2f744)** — VERDICT: approve. Blockers: none.
+  - Nit: `reports/gwnet_v1.md` self-reports ~540k params; actual at PLAN dims (N=123, hidden=32) is ~62k. Update before deck copy lands.
+  - Nit: notebook Cell 18 defines `nominal = np.linspace(0.05,0.95,10)` then never uses it — dead line, remove.
+  - Nit: hardcoded Colab clone URL `github.com/dc-ai-labs/gridsense-az.git` — parameterise.
+  - Nit: `CFG['num_nodes']=130` vs IEEE-123's 123 buses — make dynamic from loaded adjacency before real-data run.
+  - Nit: add `pl.seed_everything(SEED)` alongside `torch.manual_seed(42)`.
+  - Nit: reliability diagram is 3-point (p10/p50/p90); swap for conformal/multi-quantile sweep in final pass.
+  - Win: model file is production-grade (self-loop adjacency normalisation, shape-asserting pinball, dual-mode Colab+local notebook).
+  - **Action:** micro-fix SDE queued for after data-puller + OpenDSS SDEs land.
