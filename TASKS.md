@@ -79,3 +79,15 @@ Deploy: https://huggingface.co/spaces/dchanda/gridsense-az (pending T+9)
   - Nit: `len(kept) - (1 if readme else 0)` is awkward; readme is Path|None, cleaner as `int(readme is not None)`.
   - Wins: attempt_manifest.json forensic trail, 19 tests hit every puller contract non-vacuously, env isolation correctly plumbed to subprocess, pull_all.sh if-timeout/set-e pattern is textbook.
   - **Action:** bundled into T+20 polish SDE.
+
+### 2026-04-18T18:15 — reviewer verdict on de2e0c9 (topology)
+- **Verdict:** approve (ship)
+- **Critical issues:** none. Canonical numbers match exactly: 132 buses, 131 edges, 85 loaded buses, 3490 kW / 1920 kvar. Both transformer syntaxes resolve correctly, `~` continuation + `!` comments + case-insensitive keywords + phase-suffix stripping + Redirect recursion with cycle guard all verified live.
+- **Minor nits (ignore / followup):**
+  1. `_COMMENT_RE` doesn't strip `//` comments (docstring claim); IEEE 123 files don't use `//` so no functional impact.
+  2. `_apply_line` units fallthrough: `mi`/`m`/`km` → no conversion (dead branch for IEEE 123 data).
+  3. `Redirect` resolves relative paths without sandboxing (trusted-data, worth a note only).
+  4. Test gaps: no reciprocity test on edge_index, no per-phase aggregation assertion, no regulator-specific test (all three properties DO hold — verified).
+  5. Parallel regulator edges (reg3a/b/c) collapse in nx.Graph (harmless; use MultiGraph if per-phase regulator edges ever needed).
+  6. `EdgeAttributes.normamps` is never populated on IEEE 123 lines → `edge_attr[:,1]` is zero-variance (fine, mean-centred still valid).
+- **Praise:** clean dataclass schemas, local torch import, cycle-guarded Redirect walker — right level of defensive parsing for a hackathon foundation module.
