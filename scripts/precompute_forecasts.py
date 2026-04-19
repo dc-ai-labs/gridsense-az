@@ -864,26 +864,37 @@ def run(output_dir: Path, replay: bool = False) -> dict[str, float]:
 
     # ---- Weather -------------------------------------------------------
     logger.info("phase=nws_fetch replay=%s", replay)
-    # Compute a "tomorrow Phoenix midnight" anchor. NWS fetch always returns
-    # a ~48h window centred around "now" in UTC, which already covers the
-    # tomorrow-in-Phoenix window. The synthetic fallback uses the same
-    # anchor so replay timestamps align with the forecast window.
+    # Compute an anchor that preserves the training encoder's HOUR-OF-DAY
+    # (Phoenix local) while relabelling onto tomorrow's Phoenix calendar.
+    #
+    # The encoder's last historical hour is 2023-09-30 23:00 UTC = Phoenix
+    # hour 16 MST (4 PM). If we instead force anchor = tomorrow 00:00 MST,
+    # decoder position 0 becomes Phoenix hour 0 while encoder state is in
+    # "late-afternoon" mode → inverted load profile (peak at 02:00 MST,
+    # trough at 11:00 MST). Preserving hour-of-day avoids the discontinuity.
     now_utc = pd.Timestamp.utcnow()
     if now_utc.tzinfo is None:
         now_utc = now_utc.tz_localize("UTC")
     now_phx = now_utc.tz_convert("America/Phoenix")
-    # "Tomorrow 00:00" in Phoenix local time.
-    tomorrow_phx_midnight = (now_phx + pd.Timedelta(days=1)).normalize()
-    # Expressed in UTC, this is the first forecast hour.
-    window_start_utc = tomorrow_phx_midnight.tz_convert("UTC")
-    # anchor_ts is the hour BEFORE the window, so
-    # future_idx = [anchor+1h ... anchor+24h] = tomorrow's 24 Phoenix-local hours.
-    anchor_ts = window_start_utc - pd.Timedelta(hours=1)
+
+    raw_history = _latest_real_history_bundle()
+    raw_last_ts = pd.Timestamp(raw_history.times[-1])
+    if raw_last_ts.tzinfo is None:
+        raw_last_ts = raw_last_ts.tz_localize("UTC")
+    raw_last_phx = raw_last_ts.tz_convert("America/Phoenix")
+
+    # Anchor = tomorrow-in-Phoenix at the SAME hour-of-day as the encoder's
+    # last training hour. With training end at Phoenix hour 16 MST, the
+    # forecast window starts at tomorrow 17:00 MST → peak (17-20 MST) lands
+    # on tomorrow's Phoenix date, so the FORECAST date pill renders
+    # "tomorrow" correctly and the load profile stays realistic.
+    tomorrow_phx_date = (now_phx + pd.Timedelta(days=1)).normalize()
+    anchor_phx = tomorrow_phx_date + pd.Timedelta(hours=int(raw_last_phx.hour))
+    anchor_ts = anchor_phx.tz_convert("UTC")
     weather = _fetch_weather(hours=48, replay=replay, anchor=anchor_ts)
 
     # ---- Feature bundle (history) --------------------------------------
     logger.info("phase=bundle_build")
-    raw_history = _latest_real_history_bundle()
     # Relabel history.times so the last historical hour equals ``anchor_ts``.
     # This makes the rolling forecast emit tomorrow-in-Phoenix timestamps,
     # and lets _align_future_exog's reindex on live NWS data actually hit.
