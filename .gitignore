@@ -33,6 +33,9 @@ models/*.pt
 models/*.ckpt
 models/*.bin
 !models/.gitkeep
+data/models/*.pt
+data/models/*.ckpt
+data/models/*.bin
 
 # --- Generated figures / reports artifacts -------------------------------
 reports/figures/*
