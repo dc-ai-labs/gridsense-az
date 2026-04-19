@@ -13,18 +13,20 @@ export default function TopNav() {
           >
             GRID_OVERVIEW
           </a>
-          <a
-            className="text-slate-500 hover:bg-[#4fdbc8]/10 transition-colors duration-75 h-14 flex items-center px-2"
-            href="#"
+          <span
+            className="text-slate-500 opacity-40 cursor-not-allowed h-14 flex items-center px-2"
+            title="coming soon"
+            aria-disabled="true"
           >
             LIVE_NODES
-          </a>
-          <a
-            className="text-slate-500 hover:bg-[#4fdbc8]/10 transition-colors duration-75 h-14 flex items-center px-2"
-            href="#"
+          </span>
+          <span
+            className="text-slate-500 opacity-40 cursor-not-allowed h-14 flex items-center px-2"
+            title="coming soon"
+            aria-disabled="true"
           >
             FAULT_LOGS
-          </a>
+          </span>
         </nav>
       </div>
       <div className="flex items-center gap-4">

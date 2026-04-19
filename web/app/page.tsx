@@ -20,10 +20,16 @@ export default function Page() {
           <ForecastRibbon />
           <TacticalMap />
         </section>
-        <aside className="overflow-y-auto flex flex-col bg-surface">
-          <RiskLeaderboard />
-          <ModelMetrics />
-          <PhysicsCheck />
+        <aside className="overflow-y-auto flex flex-col bg-surface min-h-0">
+          <div className="flex-shrink-0">
+            <RiskLeaderboard />
+          </div>
+          <div className="flex-shrink-0">
+            <ModelMetrics />
+          </div>
+          <div className="flex-shrink-0">
+            <PhysicsCheck />
+          </div>
         </aside>
       </main>
       <BottomStatus />

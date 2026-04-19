@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -59,6 +60,15 @@ export function ScenarioProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [active, setActive] = useState<ScenarioKind>("baseline");
   const [compareWith, setCompareWith] = useState<ScenarioKind | null>(null);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+
+  // Auto-clear compareWith if user activates the same scenario.
+  useEffect(() => {
+    if (compareWith !== null && compareWith === active) {
+      setCompareWith(null);
+    }
+  }, [active, compareWith]);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,7 +105,8 @@ export function ScenarioProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Keyboard shortcuts B / H / E for scenario toggle. Skip when a form input is focused.
+  // Keyboard shortcuts B / H / E for scenario toggle, C for compare-cycle.
+  // Skip when a form input is focused.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (document.activeElement?.tagName ?? "").toUpperCase();
@@ -111,6 +122,19 @@ export function ScenarioProvider({ children }: { children: ReactNode }) {
       } else if (key === "e") {
         e.preventDefault();
         setActive("ev");
+      } else if (key === "c") {
+        e.preventDefault();
+        // Cycle compareWith through null -> next non-active scenario -> null.
+        setCompareWith((curCompare) => {
+          const curActive = activeRef.current;
+          const order: ScenarioKind[] = ["baseline", "heat", "ev"];
+          const candidates = order.filter((s) => s !== curActive);
+          if (curCompare === null) return candidates[0] ?? null;
+          const idx = candidates.indexOf(curCompare);
+          if (idx === -1) return candidates[0] ?? null;
+          if (idx === candidates.length - 1) return null;
+          return candidates[idx + 1];
+        });
       }
     };
     window.addEventListener("keydown", handler);

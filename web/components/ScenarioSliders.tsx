@@ -22,8 +22,21 @@ const OPTIONS: Option[] = [
  * the same `setActive`, so all dependent components repaint from pre-loaded
  * data (no fetch).
  */
+type ComparePill = {
+  key: ScenarioKind | null;
+  label: string;
+};
+
+const COMPARE_PILLS: ComparePill[] = [
+  { key: null, label: "OFF" },
+  { key: "baseline", label: "BASELINE" },
+  { key: "heat", label: "HEAT" },
+  { key: "ev", label: "EV" },
+];
+
 export default function ScenarioSliders() {
-  const { active, setActive, current } = useScenario();
+  const { active, setActive, compareWith, setCompareWith, current } =
+    useScenario();
 
   const heatOffset = active === "heat" ? "+10°F" : "+0°F";
   const heatOffsetPct = active === "heat" ? 70 : 0;
@@ -68,6 +81,52 @@ export default function ScenarioSliders() {
             </button>
           );
         })}
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[9px] text-on-surface-variant tracking-widest uppercase">
+            COMPARE_WITH
+          </span>
+          <span className="text-[8px] text-on-surface-variant opacity-70">
+            [C] CYCLE
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-1">
+          {COMPARE_PILLS.map((pill) => {
+            const isActive = compareWith === pill.key;
+            const isSelfCompare =
+              pill.key !== null && pill.key === active;
+            const disabled = isSelfCompare;
+            return (
+              <button
+                key={pill.key ?? "off"}
+                type="button"
+                disabled={disabled}
+                onClick={() => setCompareWith(pill.key)}
+                data-active={isActive}
+                className={[
+                  "py-1 px-1 border text-[9px] font-bold uppercase tracking-widest transition-colors",
+                  disabled
+                    ? "border-outline-variant/30 text-on-surface-variant/30 cursor-not-allowed"
+                    : isActive
+                      ? "border-primary bg-primary text-on-primary"
+                      : "border-outline-variant text-on-surface-variant hover:border-primary/40 hover:text-primary",
+                ].join(" ")}
+                aria-pressed={isActive}
+                title={
+                  disabled
+                    ? "Cannot compare a scenario with itself"
+                    : pill.key === null
+                      ? "Clear comparison overlay"
+                      : `Overlay ${pill.label} on top of active scenario`
+                }
+              >
+                {pill.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="space-y-4">

@@ -3,7 +3,19 @@
 import { useMemo, useState } from "react";
 import { useScenario } from "@/lib/context";
 import { riskTier } from "@/lib/validate";
-import type { PerBusMetric } from "@/lib/types";
+import type { PerBusMetric, ScenarioKind, TomorrowForecast } from "@/lib/types";
+
+const SCENARIO_ACCENT: Record<ScenarioKind, string> = {
+  baseline: "#4fdbc8",
+  heat: "#ffb95f",
+  ev: "#ffb3ad",
+};
+
+const SCENARIO_LABEL_MAP: Record<ScenarioKind, string> = {
+  baseline: "BASELINE",
+  heat: "HEAT +10°F",
+  ev: "EV SURGE",
+};
 
 const TIER_COLOR = {
   error: "#ffb4ab",
@@ -22,8 +34,20 @@ interface HoverState {
 }
 
 export default function TacticalMap() {
-  const { active, current, topology } = useScenario();
+  const { active, compareWith, current, baseline, heat, ev, topology } =
+    useScenario();
   const [hover, setHover] = useState<HoverState | null>(null);
+
+  const compareScenario: TomorrowForecast | null =
+    compareWith === null
+      ? null
+      : compareWith === "baseline"
+        ? baseline
+        : compareWith === "heat"
+          ? heat
+          : ev;
+  const compareAccent =
+    compareWith !== null ? SCENARIO_ACCENT[compareWith] : null;
 
   // Project nodes into viewBox + index by bus name.
   const nodeXY = useMemo(() => {
@@ -65,6 +89,19 @@ export default function TacticalMap() {
     return new Set(withMetric.slice(0, 10).map((x) => x.bus));
   }, [busNames, perBus]);
 
+  // Top-10 at-risk for compareWith scenario (dashed ghost rings).
+  const compareTopRiskSet = useMemo(() => {
+    if (!compareScenario) return new Set<string>();
+    const cmpPerBus = compareScenario.per_bus;
+    const withMetric = busNames
+      .map((b) => ({ bus: b, m: cmpPerBus[b] }))
+      .filter(
+        (x): x is { bus: string; m: PerBusMetric } => x.m !== undefined,
+      );
+    withMetric.sort((a, b) => b.m.risk_score - a.m.risk_score);
+    return new Set(withMetric.slice(0, 10).map((x) => x.bus));
+  }, [busNames, compareScenario]);
+
   // Top-20 highest peak_load_kw → residential proxy for EV overlay.
   const evBusSet = useMemo(() => {
     if (active !== "ev") return new Set<string>();
@@ -95,6 +132,35 @@ export default function TacticalMap() {
         LAYER: IEEE_123_BUS_NETWORK // PROJECTION: AZ_COORD_S01 · SCEN:{" "}
         <span className="text-primary">{active.toUpperCase()}</span>
       </div>
+
+      {/* Ghost-layer legend when comparing */}
+      {compareWith && compareAccent && (
+        <div
+          className="absolute top-3 right-3 bg-surface/85 p-2 font-mono text-[9px] uppercase border z-10 tracking-widest space-y-1"
+          style={{ borderColor: compareAccent }}
+        >
+          <div style={{ color: compareAccent }}>GHOST_LAYER</div>
+          <div className="flex items-center gap-2 text-on-surface-variant">
+            <svg width="14" height="6">
+              <circle
+                cx="7"
+                cy="3"
+                r="2.5"
+                fill="none"
+                stroke={compareAccent}
+                strokeWidth="1"
+                strokeDasharray="3 2"
+              />
+            </svg>
+            <span>
+              {SCENARIO_LABEL_MAP[compareWith]} TOP-10
+            </span>
+          </div>
+          <div className="text-[8px] text-on-surface-variant opacity-70">
+            SOLID = ACTIVE · DASHED = COMPARE
+          </div>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="absolute bottom-3 left-3 bg-surface/80 border border-outline-variant p-2 font-mono text-[9px] uppercase z-10 space-y-1 tracking-widest">
@@ -199,6 +265,29 @@ export default function TacticalMap() {
             );
           })}
         </g>
+
+        {/* Compare-with ghost rings */}
+        {compareAccent && (
+          <g>
+            {Array.from(compareTopRiskSet).map((bus) => {
+              const xy = nodeXY.get(bus);
+              if (!xy) return null;
+              return (
+                <circle
+                  key={`cmp-${bus}`}
+                  cx={xy.cx}
+                  cy={xy.cy}
+                  r={10}
+                  fill="none"
+                  stroke={compareAccent}
+                  strokeOpacity={0.85}
+                  strokeWidth={1}
+                  strokeDasharray="3 2"
+                />
+              );
+            })}
+          </g>
+        )}
 
         {/* EV overlay */}
         {active === "ev" && (

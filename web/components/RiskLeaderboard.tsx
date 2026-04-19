@@ -2,6 +2,7 @@
 
 import { useScenario } from "@/lib/context";
 import { riskTier } from "@/lib/validate";
+import type { TomorrowForecast } from "@/lib/types";
 
 const TIER_BAR: Record<string, string> = {
   error: "bg-error",
@@ -16,20 +17,34 @@ const TIER_TEXT: Record<string, string> = {
 };
 
 export default function RiskLeaderboard() {
-  const { current } = useScenario();
+  const { current, compareWith, baseline, heat, ev } = useScenario();
   const rows = current.risk_leaderboard.slice(0, 10);
 
+  const compareScenario: TomorrowForecast | null =
+    compareWith === null
+      ? null
+      : compareWith === "baseline"
+        ? baseline
+        : compareWith === "heat"
+          ? heat
+          : ev;
+
   return (
-    <div className="p-4 etched-b flex flex-col overflow-hidden font-mono">
+    <div className="p-4 etched-b flex flex-col font-mono">
       <div className="flex items-center justify-between mb-3">
         <span className="text-[10px] text-primary uppercase tracking-[0.2em]">
           RISK_LEADERBOARD — TOP 10
         </span>
         <span className="text-[9px] text-on-surface-variant uppercase">
           SCEN: {current.scenario}
+          {compareScenario && (
+            <span className="ml-2 text-on-surface-variant opacity-70">
+              vs {compareScenario.scenario}
+            </span>
+          )}
         </span>
       </div>
-      <div className="overflow-y-auto pr-1" style={{ maxHeight: 280 }}>
+      <div className="pr-1">
         <table className="w-full text-left text-[10px]">
           <thead className="text-on-surface-variant border-b border-outline-variant uppercase tracking-widest">
             <tr>
@@ -44,6 +59,35 @@ export default function RiskLeaderboard() {
               const tier = riskTier(r.risk_score);
               const bar = TIER_BAR[tier];
               const text = TIER_TEXT[tier];
+
+              // Delta vs compareScenario (if any). r.bus is the lookup key.
+              let deltaEl: React.ReactNode = null;
+              if (compareScenario && r.bus) {
+                const cmpMetric = compareScenario.per_bus[r.bus];
+                if (cmpMetric) {
+                  const deltaMw =
+                    r.peak_mw - cmpMetric.peak_load_kw / 1000;
+                  const arrow =
+                    deltaMw > 0 ? "▲" : deltaMw < 0 ? "▼" : "—";
+                  const sign = deltaMw > 0 ? "+" : "";
+                  const deltaColor =
+                    deltaMw > 0
+                      ? "text-secondary"
+                      : deltaMw < 0
+                        ? "text-primary"
+                        : "text-on-surface-variant";
+                  deltaEl = (
+                    <div
+                      className={`text-[8px] font-mono ${deltaColor} leading-none`}
+                    >
+                      {arrow}
+                      {sign}
+                      {deltaMw.toFixed(2)} MW
+                    </div>
+                  );
+                }
+              }
+
               return (
                 <tr
                   key={r.id}
@@ -75,7 +119,10 @@ export default function RiskLeaderboard() {
                     </div>
                   </td>
                   <td className={`py-2 text-right ${text}`}>
-                    {r.peak_mw.toFixed(2)} MW
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span>{r.peak_mw.toFixed(2)} MW</span>
+                      {deltaEl}
+                    </div>
                   </td>
                 </tr>
               );

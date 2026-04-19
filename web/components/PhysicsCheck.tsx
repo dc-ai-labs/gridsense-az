@@ -1,18 +1,34 @@
 "use client";
 
 import { useScenario } from "@/lib/context";
+import type { TomorrowForecast } from "@/lib/types";
 
 function formatVdev(v: number): string {
   const s = v >= 0 ? "+" : "-";
   return `${s}${Math.abs(v).toFixed(3)} p.u.`;
 }
 
+function topOverloadLabel(forecast: TomorrowForecast): string {
+  const o = forecast.opendss.overloads[0];
+  if (!o) return "—";
+  return `${o.element.slice(0, 14)} ${o.loading_pct.toFixed(0)}%`;
+}
+
 export default function PhysicsCheck() {
-  const { active, current } = useScenario();
+  const { active, compareWith, current, baseline, heat, ev } = useScenario();
   const { opendss } = current;
   const hasOverloads = opendss.overloads.length > 0;
   const showViolationBanner =
     (active === "heat" || active === "ev") && hasOverloads;
+
+  const compareScenario: TomorrowForecast | null =
+    compareWith === null
+      ? null
+      : compareWith === "baseline"
+        ? baseline
+        : compareWith === "heat"
+          ? heat
+          : ev;
 
   return (
     <div className="p-4 flex flex-col font-mono">
@@ -42,6 +58,54 @@ export default function PhysicsCheck() {
           VIOLATIONS DETECTED
         </div>
       )}
+
+      {compareScenario && (() => {
+        const curCount = opendss.overloads.length;
+        const cmpCount = compareScenario.opendss.overloads.length;
+        const delta = curCount - cmpCount;
+        return (
+          <div className="mb-3 border border-outline-variant bg-surface-container-lowest p-2 space-y-2">
+            <div className="flex justify-between items-center text-[9px] uppercase tracking-widest text-on-surface-variant">
+              <span>SCENARIO_DIFF</span>
+              {delta > 0 ? (
+                <span className="text-error font-bold">
+                  ▲ +{delta} NEW VIOLATIONS
+                </span>
+              ) : delta < 0 ? (
+                <span className="text-primary font-bold">
+                  ▼ {delta} FEWER
+                </span>
+              ) : (
+                <span className="text-on-surface-variant">EQUAL</span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <div className="border-l-2 border-l-primary pl-2">
+                <div className="text-[9px] text-primary uppercase tracking-widest">
+                  ACTIVE · {current.scenario}
+                </div>
+                <div className="text-on-surface">
+                  {curCount} overload{curCount === 1 ? "" : "s"}
+                </div>
+                <div className="text-[9px] text-on-surface-variant truncate">
+                  {topOverloadLabel(current)}
+                </div>
+              </div>
+              <div className="border-l-2 border-l-outline-variant pl-2">
+                <div className="text-[9px] text-on-surface-variant uppercase tracking-widest">
+                  COMPARE · {compareScenario.scenario}
+                </div>
+                <div className="text-on-surface-variant">
+                  {cmpCount} overload{cmpCount === 1 ? "" : "s"}
+                </div>
+                <div className="text-[9px] text-on-surface-variant truncate">
+                  {topOverloadLabel(compareScenario)}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="space-y-3">
         <div>
