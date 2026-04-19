@@ -7,3 +7,4 @@ next-env.d.ts
 .pnpm-store/
 .DS_Store
 .vercel
+tsconfig.tsbuildinfo
