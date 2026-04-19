@@ -63,6 +63,8 @@ DEFAULT_T_IN = 24
 DEFAULT_T_OUT = 6
 DEFAULT_BATCH = 32
 DEFAULT_LR = 1e-3
+DEFAULT_SCHEDULER = "cosine"
+DEFAULT_WARMUP_EPOCHS = 10
 
 CKPT_NAME = "gwnet_v0.pt"
 METRICS_NAME = "metrics.json"
@@ -150,6 +152,8 @@ def run(
     lr: float = DEFAULT_LR,
     resume: bool = False,
     seed: int = 1337,
+    scheduler: str = "none",
+    warmup_epochs: int = 0,
 ) -> dict[str, Any]:
     """Train GWNet on the given window and save metrics/checkpoint.
 
@@ -217,6 +221,8 @@ def run(
         epochs=epochs,
         lr=lr,
         device=device,
+        scheduler=scheduler,
+        warmup_epochs=warmup_epochs,
     )
     train_secs = time.time() - t1
     logger.info("fit complete in %.1fs (%.2fs/epoch)", train_secs, train_secs / max(epochs, 1))
@@ -272,6 +278,8 @@ def run(
             "t_out": int(t_out),
             "device": device,
             "seed": int(seed),
+            "scheduler": str(scheduler),
+            "warmup_epochs": int(warmup_epochs),
         },
     }
     (out_path / METRICS_NAME).write_text(json.dumps(metrics, indent=2, sort_keys=True))
@@ -323,6 +331,18 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--seed", type=int, default=1337)
     ap.add_argument("--log-level", default="INFO")
+    ap.add_argument(
+        "--scheduler",
+        choices=("none", "cosine"),
+        default=DEFAULT_SCHEDULER,
+        help="LR schedule (default: cosine). 'none' preserves constant LR.",
+    )
+    ap.add_argument(
+        "--warmup-epochs",
+        type=int,
+        default=DEFAULT_WARMUP_EPOCHS,
+        help="Linear warmup epochs when --scheduler=cosine (default: 10).",
+    )
     return ap.parse_args(argv)
 
 
@@ -344,6 +364,8 @@ def main(argv: list[str] | None = None) -> int:
         lr=args.lr,
         resume=args.resume,
         seed=args.seed,
+        scheduler=args.scheduler,
+        warmup_epochs=args.warmup_epochs,
     )
     return 0
 

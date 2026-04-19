@@ -226,6 +226,52 @@ def test_fit_decreases_loss_cpu() -> None:
     assert final < initial, f"loss did not decrease: initial={initial:.4f} final={final:.4f}"
 
 
+def test_fit_cosine_schedule_with_warmup() -> None:
+    """``scheduler='cosine'`` ramps LR up over warmup_epochs then anneals.
+
+    Default ``fit()`` behaviour (no scheduler) must also leave ``history``
+    without an ``'lr'`` key — the legacy contract is unchanged.
+    """
+    torch.manual_seed(0)
+    bundle = _synthetic_bundle(total_steps=200)
+    train_loader = make_dataloader(
+        bundle, t_in=24, t_out=6, batch_size=8, which="train", shuffle=False
+    )
+    cfg = GWNetConfig(d_hidden=16, n_blocks=2, n_layers_per_block=1, dropout=0.0)
+
+    # Legacy path: no scheduler kwargs -> no 'lr' in history.
+    model_legacy = GWNet(cfg)
+    hist_legacy = fit(
+        model_legacy, train_loader=train_loader, val_loader=None, epochs=2, lr=1e-3
+    )
+    assert "lr" not in hist_legacy, "legacy fit() must not record LR history"
+
+    # Cosine + warmup: LR starts low, peaks at target around end of warmup,
+    # then anneals toward 0.
+    torch.manual_seed(0)
+    model_cos = GWNet(cfg)
+    target_lr = 2e-3
+    warmup = 2
+    epochs = 6
+    hist_cos = fit(
+        model_cos,
+        train_loader=train_loader,
+        val_loader=None,
+        epochs=epochs,
+        lr=target_lr,
+        scheduler="cosine",
+        warmup_epochs=warmup,
+    )
+    lrs = hist_cos["lr"]
+    assert len(lrs) == epochs
+    # Warmup: first-epoch LR is below target.
+    assert lrs[0] < target_lr
+    # Peak sits at the warmup boundary (epoch index == warmup).
+    assert lrs[warmup] == pytest.approx(target_lr, rel=1e-6)
+    # Anneal: final epoch LR is well below the peak.
+    assert lrs[-1] < lrs[warmup]
+
+
 def test_predict_monotonic_quantiles() -> None:
     """After predict(..., sort_quantiles=True): pred[...,0] <= pred[...,1] <= pred[...,2]."""
     torch.manual_seed(0)

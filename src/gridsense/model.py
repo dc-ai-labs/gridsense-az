@@ -538,6 +538,52 @@ def make_dataloader(
 # ---------------------------------------------------------------------------
 
 
+def _build_scheduler(
+    optim: torch.optim.Optimizer,
+    scheduler: str | None,
+    epochs: int,
+    warmup_epochs: int,
+) -> torch.optim.lr_scheduler._LRScheduler | None:
+    """Construct an epoch-stepped LR scheduler.
+
+    Parameters
+    ----------
+    optim : torch optimizer
+        Optimizer whose LR will be adjusted.
+    scheduler : {None, "none", "cosine"}
+        If ``None`` or ``"none"``, returns ``None`` (preserves legacy
+        behaviour — default constant LR).
+    epochs : int
+        Total number of training epochs (linear warmup + cosine together).
+    warmup_epochs : int
+        Number of epochs to linearly ramp LR from ~0 to the target. Clamped
+        to ``[0, epochs - 1]`` so the cosine phase always has at least one
+        step to anneal over. ``0`` disables warmup and uses pure cosine.
+
+    Returns
+    -------
+    Scheduler instance or ``None``. Callers ``step()`` once per epoch.
+    """
+    if scheduler is None or scheduler == "none":
+        return None
+    if scheduler != "cosine":
+        raise ValueError(f"unknown scheduler {scheduler!r}; expected 'none' or 'cosine'")
+
+    # Clamp warmup so the cosine phase always has at least 1 epoch.
+    warmup = max(0, min(int(warmup_epochs), max(int(epochs) - 1, 0)))
+    cosine_epochs = max(int(epochs) - warmup, 1)
+    cosine = torch.optim.lr_scheduler.CosineAnnealingLR(optim, T_max=cosine_epochs)
+    if warmup <= 0:
+        return cosine
+    # Linear warmup from 1% -> 100% of target LR over ``warmup`` epochs.
+    warmup_sched = torch.optim.lr_scheduler.LinearLR(
+        optim, start_factor=0.01, end_factor=1.0, total_iters=warmup
+    )
+    return torch.optim.lr_scheduler.SequentialLR(
+        optim, schedulers=[warmup_sched, cosine], milestones=[warmup]
+    )
+
+
 def fit(
     model: GWNet,
     train_loader: DataLoader,
@@ -546,18 +592,40 @@ def fit(
     lr: float = 1e-3,
     device: str = "cpu",
     log_every: int = 50,
+    scheduler: str | None = None,
+    warmup_epochs: int = 0,
 ) -> dict[str, list[float]]:
     """Train ``model`` with Adam + pinball loss.
 
-    Returns a history dict with per-epoch train and (optional) val losses.
+    Parameters
+    ----------
+    model, train_loader, val_loader, epochs, lr, device, log_every
+        Standard training knobs.
+    scheduler : {None, "none", "cosine"}, default None
+        Optional LR schedule. ``None`` / ``"none"`` preserves the legacy
+        constant-LR behaviour (unchanged default). ``"cosine"`` applies a
+        cosine anneal after an optional linear warmup.
+    warmup_epochs : int, default 0
+        Number of warmup epochs for the cosine schedule. Ignored when
+        ``scheduler`` is ``None``/``"none"``.
+
+    Returns a history dict with per-epoch train and (optional) val losses
+    and (when a scheduler is active) the LR seen at each epoch.
     """
     torch.manual_seed(1337)
     model = model.to(device)
     optim = torch.optim.Adam(model.parameters(), lr=lr)
+    sched = _build_scheduler(optim, scheduler, epochs, warmup_epochs)
     quantiles = tuple(model.config.quantiles)
     history: dict[str, list[float]] = {"train_loss": [], "val_loss": []}
+    if sched is not None:
+        history["lr"] = []
 
     for epoch in range(epochs):
+        # Record the LR used during this epoch (pre-step).
+        if sched is not None:
+            history["lr"].append(float(optim.param_groups[0]["lr"]))
+
         model.train()
         epoch_losses: list[float] = []
         for step, batch in enumerate(train_loader):
@@ -594,6 +662,12 @@ def fit(
             history["val_loss"].append(
                 float(np.mean(val_losses)) if val_losses else float("nan")
             )
+
+        # Step the scheduler once per epoch (AFTER the optimizer has taken
+        # its steps for this epoch). SequentialLR dispatches to warmup
+        # then cosine based on milestones.
+        if sched is not None:
+            sched.step()
 
     return history
 
