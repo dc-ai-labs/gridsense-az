@@ -1,0 +1,44 @@
+{
+  "version": "v1",
+  "mode": "dummy",
+  "smoke": true,
+  "accelerator": "cpu",
+  "train_time_s": 14.92,
+  "epochs_ran": 3,
+  "best_ckpt": "/home/divyansh/Downloads/hackathon/energy/notebooks/ckpt_local/gwnet-epochepoch=01-valval_loss=0.2489.ckpt",
+  "mae_p50": 1.3836328983306885,
+  "rmse_p50": 1.8748602867126465,
+  "mape_p50": 1.2652807235717773,
+  "pinball_overall": 0.2814024090766907,
+  "pinball_per_quantile": {
+    "0.1": 0.18995723128318787,
+    "0.5": 0.426494300365448,
+    "0.9": 0.22775571048259735
+  },
+  "coverage_80": 0.7861429663608562,
+  "num_params": 29336,
+  "config": {
+    "seed": 42,
+    "horizon": 24,
+    "input_len": 168,
+    "num_quantiles": 3,
+    "quantile_levels": [
+      0.1,
+      0.5,
+      0.9
+    ],
+    "batch_size": 4,
+    "epochs": 2,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "hidden_dim": 16,
+    "num_blocks": 3,
+    "kernel_size": 2,
+    "dilation_growth": 2,
+    "dropout": 0.3,
+    "input_dim": 5,
+    "num_nodes": 20,
+    "num_timesteps": 2000,
+    "mode": "dummy"
+  }
+}

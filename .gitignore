@@ -38,6 +38,11 @@ models/*.bin
 reports/figures/*
 !reports/.gitkeep
 
+# --- Notebook runtime scratch (ckpt, logs, nbconvert exec state) ---------
+notebooks/ckpt_local/
+notebooks/pl_logs/
+notebooks/.ipynb_checkpoints/
+
 # --- Node (if Vercel landing added later) --------------------------------
 node_modules/
 .next/
