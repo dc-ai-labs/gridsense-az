@@ -75,8 +75,14 @@ HEAT_TEMP_SHIFT_C: float = 5.56  # +10 degrees Fahrenheit
 # Arizona does not observe DST — always UTC-7.
 LOCAL_TZ_OFFSET_HOURS: int = -7
 HEAT_MULTIPLIER_PROFILE: tuple[float, ...] = tuple(
-    # LOCAL hour-of-day 0..23: default 1.0, 12-18 => 1.4, 19-22 => 1.2.
-    1.4 if 12 <= h <= 18 else (1.2 if 19 <= h <= 22 else 1.0)
+    # Phoenix heat-wave hourly load profile (LOCAL hour-of-day 0..23).
+    # Peak 17-20 MST (evening residential+commercial AC sustain),
+    # elevated 14-21 MST, baseline overnight/morning.
+    # Derived from APS heat-wave case studies: evening is when sustained
+    # ~110°F + home occupancy drives max kW demand on distribution feeders.
+    1.55 if 17 <= h <= 20
+    else (1.35 if 14 <= h <= 16 or h == 21 else
+          (1.15 if 11 <= h <= 13 or h == 22 else 1.0))
     for h in range(24)
 )
 

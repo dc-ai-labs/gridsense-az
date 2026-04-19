@@ -44,6 +44,23 @@ function formatPhoenixDate(iso: string): string {
   }
 }
 
+function formatPhoenixDateTomorrow(iso: string): string {
+  try {
+    const d = new Date(iso);
+    // Add one calendar day in Phoenix TZ. Phoenix = UTC-7, no DST.
+    // The simplest: shift the UTC epoch by 24h, then format in Phoenix TZ.
+    const tomorrow = new Date(d.getTime() + 24 * 3600 * 1000);
+    return tomorrow.toLocaleDateString("en-CA", {
+      timeZone: "America/Phoenix",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  } catch {
+    return iso.slice(0, 10);
+  }
+}
+
 function sourceDotClass(src: "live" | "replay" | "synthetic"): string {
   if (src === "live") return "bg-primary";
   if (src === "replay") return "bg-secondary";
@@ -140,9 +157,12 @@ export default function TopNav() {
     }
   };
 
-  // Forecast target date: peak-hour quantile timestamp in Phoenix TZ.
-  const peakRow = current.quantiles.find((q) => q.hour === current.feeder_rollup.peak_hour);
-  const forecastDate = peakRow ? formatPhoenixDate(peakRow.ts) : formatPhoenixDate(generatedAt.iso);
+  // Forecast target date: always "tomorrow" in Phoenix TZ relative to when
+  // the precompute ran. Using peak-hour ts was fragile — heat scenario
+  // peaks at 13:00 MST land on day-after-tomorrow in UTC terms due to
+  // the 24h window crossing midnight, making the pill flicker between
+  // dates as sliders move.
+  const forecastDate = formatPhoenixDateTomorrow(generatedAt.iso);
   const relative = formatRelative(generatedAt.iso);
   const gitShort = generatedAt.git_sha?.slice(0, 7) ?? "unknown";
   const src = generatedAt.nws_source;
