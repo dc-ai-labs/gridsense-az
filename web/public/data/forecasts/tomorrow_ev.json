@@ -1030,8 +1030,8 @@
   "feeder_rollup": {
     "peak_mw": 4138.6908327159545,
     "peak_hour": 19,
-    "capacity_mw": 6213.438431640625,
-    "load_factor": 0.6660870431483709
+    "capacity_mw": 4124.2908,
+    "load_factor": 1.003492
   },
   "opendss": {
     "converged": true,

@@ -411,6 +411,7 @@ def _compute_per_bus_metrics(
     forecast: Forecast,
     snap: SnapshotResult,
     node_names: list[str],
+    system_capacity_mw: float | None = None,
 ) -> tuple[dict[str, dict[str, float]], list[dict[str, Any]], dict[str, float]]:
     """Build the per-bus metric dict, the top-10 risk leaderboard, and the
     feeder rollup dict.
@@ -461,7 +462,10 @@ def _compute_per_bus_metrics(
     # Report peak_hour in Phoenix local convention (matches quantiles[].hour
     # and the frontend validator's [17, 22] EV check).
     peak_local_hour = int(_local_hour(forecast.timestamps[peak_idx]))
-    capacity_mw = sum(v["rating_kw"] for v in per_bus.values()) / 1000.0
+    # Use the provided baseline capacity if available; otherwise fall back to
+    # the sum of per-bus ratings (only meaningful for the baseline itself).
+    derived_capacity_mw = sum(v["rating_kw"] for v in per_bus.values()) / 1000.0
+    capacity_mw = system_capacity_mw if system_capacity_mw is not None else derived_capacity_mw
     load_factor = float(peak_mw / capacity_mw) if capacity_mw > 0 else 0.0
     rollup = {
         "peak_mw": peak_mw,
@@ -641,8 +645,11 @@ def _forecast_to_tomorrow_json(
     scenario_actions: list[str],
     generated_at: str,
     weather_temp_shift_c: float = 0.0,
+    system_capacity_mw: float | None = None,
 ) -> dict[str, Any]:
-    per_bus, leaderboard, rollup = _compute_per_bus_metrics(forecast, snap, node_names)
+    per_bus, leaderboard, rollup = _compute_per_bus_metrics(
+        forecast, snap, node_names, system_capacity_mw=system_capacity_mw
+    )
     # System-total quantiles per hour.
     p10_mw = forecast.p10.sum(axis=1) / 1000.0
     p50_mw = forecast.p50.sum(axis=1) / 1000.0
@@ -856,18 +863,27 @@ def run(output_dir: Path, replay: bool = False) -> dict[str, float]:
 
     # ---- Assemble payloads ---------------------------------------------
     logger.info("phase=write_json")
+    # Use the baseline system peak as the fixed capacity reference for all
+    # scenarios so the load factor meaningfully shows how much stress each
+    # scenario adds relative to normal operating conditions.
+    baseline_system_peak_mw = float(baseline_fc.p50.sum(axis=1).max() / 1000.0)
+    logger.info("baseline system peak for capacity reference: %.1f MW", baseline_system_peak_mw)
+
     baseline_payload = _forecast_to_tomorrow_json(
         "baseline", baseline_fc, snap_baseline, weather, history.node_names,
         baseline_actions, generated_at_iso,
+        system_capacity_mw=baseline_system_peak_mw,
     )
     heat_payload = _forecast_to_tomorrow_json(
         "heat", heat_fc, snap_heat, weather, history.node_names,
         heat_actions, generated_at_iso,
         weather_temp_shift_c=HEAT_TEMP_SHIFT_C,
+        system_capacity_mw=baseline_system_peak_mw,
     )
     ev_payload = _forecast_to_tomorrow_json(
         "ev", ev_fc, snap_ev, weather, history.node_names,
         ev_actions, generated_at_iso,
+        system_capacity_mw=baseline_system_peak_mw,
     )
 
     topology_payload = _build_topology_payload()
