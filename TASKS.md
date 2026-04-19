@@ -42,3 +42,17 @@ Deploy: https://huggingface.co/spaces/dchanda/gridsense-az (pending T+9)
 - 2026-04-18: HF Space requirements are split from main `requirements.txt` — HF Space ships `torch + streamlit + pydeck + plotly + pandas + duckdb + opendssdirect.py + hf_hub + captum` only. Keeps the Space build under the 10-min free-tier ceiling.
 - 2026-04-18: GitHub account used is `dc-ai-labs` (active `gh auth` account); HF_USERNAME is `dchanda` per PLAN §0.5.
 - 2026-04-18: Model weights shipped via HF Hub, not git-LFS (PLAN §8 risk register). `.gitattributes` still declares LFS filters for *.pt/*.ckpt/*.bin in case of local caches.
+
+### Reviewer verdict — 8e2f744 (ml-trainer: GWNet + quantile head + training notebook)
+- **Reviewer:** aa5e62e9a454242cb
+- **Verdict:** approve (no blockers)
+- **Nits logged (non-blocking, deferred to final polish pass):**
+  1. reports/gwnet_v1.md quotes ~540k params; actual at PLAN dims is ~62k — fix before deck.
+  2. notebooks/02_gwnet_train.ipynb Cell 18: dead line `nominal = np.linspace(0.05,0.95,10)` (overridden by `nom_onesided`) — remove.
+  3. Hardcoded clone URL `github.com/dc-ai-labs/gridsense-az.git` in notebook — parameterise once repo owner confirmed.
+  4. CFG["num_nodes"]=130 in notebook vs IEEE-123 (123 buses) — make dynamic from loaded adjacency.
+  5. Add `pl.seed_everything(SEED)` alongside `torch.manual_seed(42)`.
+  6. Reliability diagram is currently 3-point; for final run either predict more quantiles or conformalise.
+- **Wins called out:** clean model factor, shape-asserting pinball, Colab+local dual-mode notebook.
+- **Action:** queued micro-fix SDE for after data-puller + OpenDSS SDEs land.
+
