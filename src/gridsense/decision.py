@@ -388,10 +388,12 @@ def recommend_actions(scenario: ScenarioResult) -> list[str]:
         worst_bus = min(
             scenario.stressed.bus_voltages_pu.items(), key=lambda kv: kv[1]
         )[0]
+        worst_pct = scenario.worst_voltage_pu * 100
         actions.append(
-            f"Install switched capacitor bank at bus {worst_bus} "
-            f"({len(scenario.violations)} buses below 0.95 pu; "
-            f"worst voltage {scenario.worst_voltage_pu:.3f} pu)"
+            f"Voltage critically low across {len(scenario.violations)} buses "
+            f"(worst: bus {worst_bus} at {worst_pct:.1f}% of nominal, "
+            f"minimum allowed is 95%) — install a capacitor bank near bus {worst_bus} "
+            f"to restore voltage"
         )
     elif scenario.violations:
         first = ", ".join(scenario.violations[:3])
@@ -400,8 +402,9 @@ def recommend_actions(scenario: ScenarioResult) -> list[str]:
             else f" (+{len(scenario.violations) - 3} more)"
         )
         actions.append(
-            f"Enrol feeders near buses {first}{suffix} in TOU / pre-cooling DR "
-            f"programme to shave the evening peak"
+            f"Voltage below safe limits at buses {first}{suffix} — "
+            f"enrol nearby customers in a pre-cooling or time-of-use programme "
+            f"to reduce demand before the evening peak"
         )
 
     # Rule 3 — thermal overloads.
@@ -410,9 +413,9 @@ def recommend_actions(scenario: ScenarioResult) -> list[str]:
             scenario.stressed.line_loadings_pct.items(), key=lambda kv: kv[1]
         )[0]
         actions.append(
-            f"Reconductor line {worst_line} "
-            f"(peak loading {scenario.worst_loading_pct:.0f}% of NormAmps; "
-            f"{len(scenario.overloads)} line(s) overloaded)"
+            f"Line {worst_line.upper()} is carrying {scenario.worst_loading_pct:.0f}% "
+            f"of its rated capacity ({len(scenario.overloads)} line(s) overloaded total) — "
+            f"upgrade to a higher-rated conductor to prevent overheating"
         )
 
     # Rule 4 — marginal-but-not-violating voltages.
@@ -420,9 +423,11 @@ def recommend_actions(scenario: ScenarioResult) -> list[str]:
         critical = rank_critical_buses(scenario, top_k=1)
         if critical:
             bus, _ = critical[0]
+            margin_pct = (scenario.worst_voltage_pu - VOLTAGE_LOWER_PU) * 100
             actions.append(
-                f"Schedule proactive capacitor commitment near bus {bus} "
-                f"(margin {scenario.worst_voltage_pu - VOLTAGE_LOWER_PU:.3f} pu)"
+                f"Voltage near bus {bus} is within safe limits but close to the edge "
+                f"(only {margin_pct:.1f}% headroom remaining) — "
+                f"consider scheduling a capacitor bank proactively before peak season"
             )
 
     return actions
