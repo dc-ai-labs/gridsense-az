@@ -36,6 +36,7 @@ cp -r "${REPO_ROOT}/data/ieee123/"* "${HF_STAGE}/data/ieee123/"
 # HF Space metadata
 cp "${REPO_ROOT}/hf_space/README.md" "${HF_STAGE}/README.md"
 cp "${REPO_ROOT}/hf_space/requirements.txt" "${HF_STAGE}/requirements.txt"
+cp "${REPO_ROOT}/hf_space/Dockerfile" "${HF_STAGE}/Dockerfile"
 
 # Optional: copy trained model if it exists
 if [[ -f "${REPO_ROOT}/data/models/gwnet_v0.pt" ]]; then
