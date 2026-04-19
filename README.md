@@ -38,7 +38,7 @@ bash scripts/pull_all.sh
 pytest -q
 
 # 8. Launch the dashboard locally
-streamlit run app/streamlit_app.py
+make run-app        # or: streamlit run app/streamlit_app.py
 
 # 9. (Training) open the Colab notebook and point it at a GPU runtime
 #    notebooks/02_gwnet_train.ipynb
