@@ -25,7 +25,13 @@ export default function MissionControl() {
   const { current } = useScenario();
   const { weather, feeder_rollup, recommended_actions } = current;
 
-  const loadFactorPct = Math.min(100, Math.max(0, feeder_rollup.load_factor * 100));
+  const loadFactorPct = Math.max(0, feeder_rollup.load_factor * 100);
+  const deltaPct = loadFactorPct - 100;
+  // Normalise bar to a 150% scale so baseline (100%) sits at ~67% fill
+  // and heat (139%) is visually distinct rather than both maxing out.
+  const BAR_SCALE = 150;
+  const barFillPct = Math.min(100, (loadFactorPct / BAR_SCALE) * 100);
+  const refTickPct = (100 / BAR_SCALE) * 100; // position of the 100% reference mark
   const peakDisplay = (feeder_rollup.peak_mw ?? 0).toFixed(0);
   const capacityDisplay = (feeder_rollup.capacity_mw ?? 0).toFixed(0);
 
@@ -82,19 +88,35 @@ export default function MissionControl() {
           <span className="text-[10px] text-on-surface-variant">MW</span>
         </div>
         <div className="space-y-1.5">
-          <div className="flex justify-between text-[10px]">
+          <div className="flex justify-between items-center text-[10px]">
             <span>LOAD_FACTOR</span>
-            <span
-              className={
-                loadFactorPct >= 100
-                  ? "text-error"
-                  : loadFactorPct >= 85
-                    ? "text-secondary"
-                    : "text-primary"
-              }
-            >
-              {loadFactorPct.toFixed(1)}%
-            </span>
+            <div className="flex items-center gap-2">
+              {/* Delta badge — only shown when not baseline */}
+              {Math.abs(deltaPct) >= 0.1 && (
+                <span
+                  className={`text-[9px] font-mono px-1 border ${
+                    deltaPct > 0
+                      ? "text-error border-error/50 bg-error/10"
+                      : "text-primary border-primary/50 bg-primary/10"
+                  }`}
+                >
+                  {deltaPct > 0 ? "▲" : "▼"}
+                  {deltaPct > 0 ? "+" : ""}
+                  {deltaPct.toFixed(1)}%
+                </span>
+              )}
+              <span
+                className={
+                  loadFactorPct >= 100
+                    ? "text-error"
+                    : loadFactorPct >= 85
+                      ? "text-secondary"
+                      : "text-primary"
+                }
+              >
+                {loadFactorPct.toFixed(1)}%
+              </span>
+            </div>
           </div>
           <div className="h-1.5 bg-surface-container-lowest w-full relative">
             <div
@@ -105,15 +127,16 @@ export default function MissionControl() {
                     ? "absolute top-0 left-0 h-full bg-secondary"
                     : "absolute top-0 left-0 h-full bg-primary"
               }
-              style={{ width: `${Math.min(100, loadFactorPct)}%` }}
+              style={{ width: `${barFillPct}%` }}
             />
-            {/* Overshoot ghost at >100% */}
-            {loadFactorPct >= 100 && (
-              <div className="absolute top-0 right-0 h-full w-px bg-error pulse-violation" />
-            )}
+            {/* Reference tick at the 100% / baseline mark */}
+            <div
+              className="absolute top-0 h-full w-px bg-on-surface-variant opacity-40"
+              style={{ left: `${refTickPct}%` }}
+            />
           </div>
           <div className="flex justify-between text-[9px] text-on-surface-variant">
-            <span>CAPACITY</span>
+            <span>BASELINE_REF</span>
             <span>{capacityDisplay} MW</span>
           </div>
         </div>
