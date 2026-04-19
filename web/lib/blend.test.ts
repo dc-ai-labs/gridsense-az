@@ -35,14 +35,14 @@ describe("tempFactor", () => {
     expect(tempFactor(25)).toBe(2.5);
   });
 
-  it("applies asymmetric HALF sensitivity on the cool side — -5F hits the floor", () => {
-    // -5 / 20 = -0.25 exactly, which equals the floor.
-    expect(tempFactor(-5)).toBeCloseTo(-0.25, 12);
+  it("applies asymmetric HALF sensitivity on the cool side — -5F gives power-1.5 result", () => {
+    // linearN = 5/20 = 0.25 → -Math.pow(0.25, 1.5) ≈ -0.125
+    expect(tempFactor(-5)).toBeCloseTo(-Math.pow(0.25, 1.5), 10);
   });
 
   it("applies asymmetric HALF sensitivity for a mild cool delta", () => {
-    // -2 / 20 = -0.1
-    expect(tempFactor(-2)).toBeCloseTo(-0.1, 12);
+    // linearN = 2/20 = 0.1 → -Math.pow(0.1, 1.5) ≈ -0.031623
+    expect(tempFactor(-2)).toBeCloseTo(-Math.pow(0.1, 1.5), 10);
   });
 
   it("clamps extreme negative delta to the -0.25 floor", () => {
@@ -244,7 +244,7 @@ describe("blendForecast permutations", () => {
     { t: 0, e: 0, expectBaseline: true, label: "baseline preset", preset: "baseline" },
     { t: 10, e: 0, expectPeak: 150, label: "heat preset", preset: "heat" },
     { t: 0, e: 35, expectPeak: 130, label: "ev preset", preset: "ev" },
-    { t: -5, e: 0, expectPeak: 100 + -0.25 * 50, label: "mild cool relief", preset: "custom" },
+    { t: -5, e: 0, expectPeak: 100 + -Math.pow(0.25, 1.5) * 50, label: "mild cool relief", preset: "custom" },
     { t: 0, e: 100, expectMin: 100, label: "100% EV must be >= baseline", preset: "custom" },
     { t: -5, e: 100, expectMin: 101, label: "CRITICAL user case (-5F, 100% EV) must beat baseline", preset: "custom" },
     {
@@ -345,9 +345,8 @@ describe("blendForecast — user regression: (-5F, 100% EV) must not drop below 
   });
 
   it("blend at (-5, 100) outperforms the naive fully-mirrored cool model", () => {
-    // Sanity: the new asymmetric factor at -5F is exactly -0.25, NOT -0.5.
-    // If the old mirror model were still in place, -5F would trim 367 MW
-    // instead of 184 MW — the blend result would differ accordingly.
+    // With power-1.5 ramp: linearN = 5/20 = 0.25 → factor = -Math.pow(0.25,1.5) ≈ -0.125.
+    // This is gentler than the old -0.25 linear factor.
     const blended = blendForecast({
       baseline,
       heat,
@@ -356,17 +355,15 @@ describe("blendForecast — user regression: (-5F, 100% EV) must not drop below 
       evPenetrationPct: 100,
     });
     // Peak is NOT at h19 but at the other EV-window hours (17,18,20,21,22)
-    // where heat is at its 1.15× floor (4226.25) rather than the h19 spike
-    // that gets capped. Specifically:
+    // where heat is at its 1.15× floor (4226.25) rather than the h19 spike.
+    // tTemp = -Math.pow(0.25, 1.5), tEv = 100/35
     //   non-h19 EV-window hour: heat=3675*1.15=4226.25, ev=3963.
-    //   blended = 3675 + (-0.25)*(4226.25-3675) + (100/35)*(3963-3675)
-    //           = 3675 - 137.8125 + 822.857...
-    //           ≈ 4360.04 MW
-    // At h19 itself: heat=4410, ev=3963 →
-    //   3675 + (-0.25)*735 + (100/35)*288 ≈ 4314.1 MW
-    // So the overall peak is the EV-window shoulder, not h19. Assert it.
+    //   blended = 3675 + tTemp*(4226.25-3675) + (100/35)*(3963-3675)
+    // At h19: heat=4410, ev=3963 → 3675 + tTemp*735 + (100/35)*288
+    // Non-h19 shoulder is the peak. Assert it.
+    const tTemp = -Math.pow(0.25, 1.5);
     const expectedPeak =
-      3675 + -0.25 * (3675 * 1.15 - 3675) + (100 / 35) * (3963 - 3675);
+      3675 + tTemp * (3675 * 1.15 - 3675) + (100 / 35) * (3963 - 3675);
     expect(blended.feeder_rollup.peak_mw).toBeCloseTo(expectedPeak, 2);
   });
 });

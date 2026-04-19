@@ -55,14 +55,16 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 export function tempFactor(tempDeltaF: number): number {
-  // Positive: linear extrapolation of the heat anchor (+10°F → factor 1.0).
-  // Negative: HALF sensitivity, clamped to -0.25. Cooling below today mildly
-  // trims AC load; we do not extrapolate the heat-wave Δ backward because
-  // that would be an unphysical mirror of the heat anchor.
+  // Non-linear ramp (power=1.5): small temp bumps feel mild, full heat
+  // only at the +10°F anchor. Preserves preset match at +10°F → 1.0.
+  // Examples: +1°F → 0.03, +3°F → 0.16, +5°F → 0.35, +8°F → 0.72, +10°F → 1.0.
   if (tempDeltaF >= 0) {
-    return clamp(tempDeltaF / TEMP_ANCHOR_F, 0, TEMP_T_MAX);
+    const linear = tempDeltaF / TEMP_ANCHOR_F;
+    return clamp(Math.pow(linear, 1.5), 0, TEMP_T_MAX);
   }
-  return clamp(tempDeltaF / (TEMP_ANCHOR_F * 2), TEMP_T_MIN, 0);
+  // Negative side: half sensitivity, same shape.
+  const linearN = Math.abs(tempDeltaF) / (TEMP_ANCHOR_F * 2);
+  return clamp(-Math.pow(linearN, 1.5), TEMP_T_MIN, 0);
 }
 
 export function evFactor(evPenetrationPct: number): number {
