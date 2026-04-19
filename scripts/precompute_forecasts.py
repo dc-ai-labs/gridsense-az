@@ -538,11 +538,17 @@ def _weather_summary(
 
 def _severity_for(action_str: str) -> str:
     lower = action_str.lower()
-    if "shed" in lower:
+    # Thermal overload — overheating wire is the most urgent physical risk
+    if "overloaded" in lower or "overheating" in lower or "higher-rated conductor" in lower or "shed" in lower:
         return "error"
-    if "pre-cool" in lower or "precool" in lower or "preconditioning" in lower or "pre-conditioning" in lower:
+    # Voltage critically low across many buses
+    if "voltage critically low" in lower or "install a capacitor bank" in lower:
         return "secondary"
-    if "reconductor" in lower or "deploy" in lower or "install" in lower:
+    # Demand-side / pre-cooling programmes — less urgent, behavioural
+    if "pre-cool" in lower or "precool" in lower or "time-of-use" in lower or "enrol" in lower:
+        return "primary"
+    # Proactive / marginal — lowest urgency
+    if "close to the edge" in lower or "proactively" in lower or "deploy" in lower:
         return "tertiary"
     return "primary"
 

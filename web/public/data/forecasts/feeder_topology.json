@@ -254,12 +254,12 @@
     {
       "bus": "300",
       "x_norm": 0.5954128440366973,
-      "y_norm": 1
+      "y_norm": 1.0
     },
     {
       "bus": "300_open",
-      "x_norm": 0,
-      "y_norm": 0
+      "x_norm": 0.0,
+      "y_norm": 0.0
     },
     {
       "bus": "31",
@@ -343,7 +343,7 @@
     },
     {
       "bus": "450",
-      "x_norm": 1,
+      "x_norm": 1.0,
       "y_norm": 0.5236907730673317
     },
     {
@@ -628,8 +628,8 @@
     },
     {
       "bus": "94_open",
-      "x_norm": 0,
-      "y_norm": 0
+      "x_norm": 0.0,
+      "y_norm": 0.0
     },
     {
       "bus": "95",
@@ -666,7 +666,8 @@
     {
       "from": "150",
       "to": "150r",
-      "kind": "xfmr"
+      "kind": "xfmr",
+      "name": "reg1a"
     },
     {
       "from": "150r",
@@ -743,7 +744,8 @@
     {
       "from": "9",
       "to": "9r",
-      "kind": "xfmr"
+      "kind": "xfmr",
+      "name": "reg2a"
     },
     {
       "from": "13",
@@ -856,7 +858,8 @@
     {
       "from": "25",
       "to": "25r",
-      "kind": "xfmr"
+      "kind": "xfmr",
+      "name": "reg3c"
     },
     {
       "from": "25r",
@@ -1437,12 +1440,14 @@
     {
       "from": "160r",
       "to": "160",
-      "kind": "xfmr"
+      "kind": "xfmr",
+      "name": "reg4c"
     },
     {
       "from": "61s",
       "to": "610",
-      "kind": "xfmr"
+      "kind": "xfmr",
+      "name": "xfm1"
     }
   ]
 }
