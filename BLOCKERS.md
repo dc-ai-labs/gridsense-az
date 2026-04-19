@@ -23,4 +23,13 @@
 - Not blocking demand forecast; only the stress-test scenario.
 
 ## 🛑 Actually blocking (need user)
-- (none right now)
+
+### Colab MCP tools not mounted in ml-trainer subagent (2026-04-18T19:45)
+- The `mcp__colab__*` tool namespace is only visible to the parent/manager agent. Subagents launched via the Agent tool do not inherit MCP server connections.
+- Attempted `mcp__colab__open_colab_browser_connection` → `No such tool available`.
+- **Impact:** ml-trainer cannot open the Colab bridge itself; the parent agent must call `mcp__colab__open_colab_browser_connection` and then relay the URL + execute cells.
+- **Workaround staged by ml-trainer:**
+  - Colab bootstrap notebook written to `/home/divyansh/Downloads/hackathon/energy/notebooks/colab_train_gwnet.ipynb`
+  - It is self-contained: git-clones the repo, installs deps, runs `scripts/train.py` on GPU, zips outputs.
+  - Parent needs to: (a) invoke the MCP tool to open the Colab URL, (b) paste the notebook's cells or upload the .ipynb via the browser UI, (c) after training, download `data/models/gwnet_v1.zip` back.
+- **Also required:** training code is 11 commits ahead of `origin/main` and NOT pushed. Parent must decide whether to push (manager has say-so per constraints) or have the user upload the tarball manually.
