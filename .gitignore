@@ -49,3 +49,4 @@ notebooks/.ipynb_checkpoints/
 # --- Node (if Vercel landing added later) --------------------------------
 node_modules/
 .next/
+hf_space_stage/
