@@ -1,0 +1,1104 @@
+{
+  "scenario": "baseline",
+  "generated_at": "2026-04-20T00:00:00Z",
+  "quantiles": [
+    {
+      "ts": "2026-04-20T00:00:00Z",
+      "hour": 0,
+      "p10_mw": 2071.94,
+      "p50_mw": 2354.47,
+      "p90_mw": 2684.1
+    },
+    {
+      "ts": "2026-04-20T01:00:00Z",
+      "hour": 1,
+      "p10_mw": 1878.8,
+      "p50_mw": 2135.0,
+      "p90_mw": 2433.9
+    },
+    {
+      "ts": "2026-04-20T02:00:00Z",
+      "hour": 2,
+      "p10_mw": 1712.95,
+      "p50_mw": 1946.53,
+      "p90_mw": 2219.05
+    },
+    {
+      "ts": "2026-04-20T03:00:00Z",
+      "hour": 3,
+      "p10_mw": 1585.69,
+      "p50_mw": 1801.92,
+      "p90_mw": 2054.19
+    },
+    {
+      "ts": "2026-04-20T04:00:00Z",
+      "hour": 4,
+      "p10_mw": 1505.69,
+      "p50_mw": 1711.01,
+      "p90_mw": 1950.55
+    },
+    {
+      "ts": "2026-04-20T05:00:00Z",
+      "hour": 5,
+      "p10_mw": 1478.4,
+      "p50_mw": 1680.0,
+      "p90_mw": 1915.2
+    },
+    {
+      "ts": "2026-04-20T06:00:00Z",
+      "hour": 6,
+      "p10_mw": 1505.69,
+      "p50_mw": 1711.01,
+      "p90_mw": 1950.55
+    },
+    {
+      "ts": "2026-04-20T07:00:00Z",
+      "hour": 7,
+      "p10_mw": 1585.69,
+      "p50_mw": 1801.92,
+      "p90_mw": 2054.19
+    },
+    {
+      "ts": "2026-04-20T08:00:00Z",
+      "hour": 8,
+      "p10_mw": 1712.95,
+      "p50_mw": 1946.53,
+      "p90_mw": 2219.05
+    },
+    {
+      "ts": "2026-04-20T09:00:00Z",
+      "hour": 9,
+      "p10_mw": 1878.8,
+      "p50_mw": 2135.0,
+      "p90_mw": 2433.9
+    },
+    {
+      "ts": "2026-04-20T10:00:00Z",
+      "hour": 10,
+      "p10_mw": 2071.94,
+      "p50_mw": 2354.47,
+      "p90_mw": 2684.1
+    },
+    {
+      "ts": "2026-04-20T11:00:00Z",
+      "hour": 11,
+      "p10_mw": 2279.2,
+      "p50_mw": 2590.0,
+      "p90_mw": 2952.6
+    },
+    {
+      "ts": "2026-04-20T12:00:00Z",
+      "hour": 12,
+      "p10_mw": 2486.46,
+      "p50_mw": 2825.53,
+      "p90_mw": 3221.1
+    },
+    {
+      "ts": "2026-04-20T13:00:00Z",
+      "hour": 13,
+      "p10_mw": 2679.6,
+      "p50_mw": 3045.0,
+      "p90_mw": 3471.3
+    },
+    {
+      "ts": "2026-04-20T14:00:00Z",
+      "hour": 14,
+      "p10_mw": 2845.45,
+      "p50_mw": 3233.47,
+      "p90_mw": 3686.15
+    },
+    {
+      "ts": "2026-04-20T15:00:00Z",
+      "hour": 15,
+      "p10_mw": 2972.71,
+      "p50_mw": 3378.08,
+      "p90_mw": 3851.01
+    },
+    {
+      "ts": "2026-04-20T16:00:00Z",
+      "hour": 16,
+      "p10_mw": 3052.71,
+      "p50_mw": 3468.99,
+      "p90_mw": 3954.65
+    },
+    {
+      "ts": "2026-04-20T17:00:00Z",
+      "hour": 17,
+      "p10_mw": 3080.0,
+      "p50_mw": 3500.0,
+      "p90_mw": 3990.0
+    },
+    {
+      "ts": "2026-04-20T18:00:00Z",
+      "hour": 18,
+      "p10_mw": 3052.71,
+      "p50_mw": 3468.99,
+      "p90_mw": 3954.65
+    },
+    {
+      "ts": "2026-04-20T19:00:00Z",
+      "hour": 19,
+      "p10_mw": 2972.71,
+      "p50_mw": 3378.08,
+      "p90_mw": 3851.01
+    },
+    {
+      "ts": "2026-04-20T20:00:00Z",
+      "hour": 20,
+      "p10_mw": 2845.45,
+      "p50_mw": 3233.47,
+      "p90_mw": 3686.15
+    },
+    {
+      "ts": "2026-04-20T21:00:00Z",
+      "hour": 21,
+      "p10_mw": 2679.6,
+      "p50_mw": 3045.0,
+      "p90_mw": 3471.3
+    },
+    {
+      "ts": "2026-04-20T22:00:00Z",
+      "hour": 22,
+      "p10_mw": 2486.46,
+      "p50_mw": 2825.53,
+      "p90_mw": 3221.1
+    },
+    {
+      "ts": "2026-04-20T23:00:00Z",
+      "hour": 23,
+      "p10_mw": 2279.2,
+      "p50_mw": 2590.0,
+      "p90_mw": 2952.6
+    }
+  ],
+  "per_bus": {
+    "1": {
+      "bus": "1",
+      "risk_score": 0.34,
+      "peak_load_kw": 148.6,
+      "rating_kw": 231.6
+    },
+    "10": {
+      "bus": "10",
+      "risk_score": 0.321,
+      "peak_load_kw": 157.2,
+      "rating_kw": 215.8
+    },
+    "100": {
+      "bus": "100",
+      "risk_score": 0.456,
+      "peak_load_kw": 386.9,
+      "rating_kw": 540.3
+    },
+    "101": {
+      "bus": "101",
+      "risk_score": 0.211,
+      "peak_load_kw": 336.6,
+      "rating_kw": 409.6
+    },
+    "102": {
+      "bus": "102",
+      "risk_score": 0.437,
+      "peak_load_kw": 534.7,
+      "rating_kw": 765.4
+    },
+    "103": {
+      "bus": "103",
+      "risk_score": 0.398,
+      "peak_load_kw": 703.7,
+      "rating_kw": 1112.3
+    },
+    "104": {
+      "bus": "104",
+      "risk_score": 0.098,
+      "peak_load_kw": 210.1,
+      "rating_kw": 238.8
+    },
+    "105": {
+      "bus": "105",
+      "risk_score": 0.298,
+      "peak_load_kw": 490.9,
+      "rating_kw": 531.5
+    },
+    "106": {
+      "bus": "106",
+      "risk_score": 0.391,
+      "peak_load_kw": 358.2,
+      "rating_kw": 382.1
+    },
+    "107": {
+      "bus": "107",
+      "risk_score": 0.319,
+      "peak_load_kw": 173.0,
+      "rating_kw": 261.8
+    },
+    "108": {
+      "bus": "108",
+      "risk_score": 0.253,
+      "peak_load_kw": 121.2,
+      "rating_kw": 160.6
+    },
+    "109": {
+      "bus": "109",
+      "risk_score": 0.129,
+      "peak_load_kw": 239.1,
+      "rating_kw": 287.6
+    },
+    "11": {
+      "bus": "11",
+      "risk_score": 0.272,
+      "peak_load_kw": 782.0,
+      "rating_kw": 1182.5
+    },
+    "110": {
+      "bus": "110",
+      "risk_score": 0.146,
+      "peak_load_kw": 288.1,
+      "rating_kw": 338.9
+    },
+    "111": {
+      "bus": "111",
+      "risk_score": 0.339,
+      "peak_load_kw": 307.0,
+      "rating_kw": 451.8
+    },
+    "112": {
+      "bus": "112",
+      "risk_score": 0.461,
+      "peak_load_kw": 100.3,
+      "rating_kw": 126.6
+    },
+    "113": {
+      "bus": "113",
+      "risk_score": 0.199,
+      "peak_load_kw": 582.0,
+      "rating_kw": 611.3
+    },
+    "114": {
+      "bus": "114",
+      "risk_score": 0.62,
+      "peak_load_kw": 397.0,
+      "rating_kw": 519.4
+    },
+    "12": {
+      "bus": "12",
+      "risk_score": 0.26,
+      "peak_load_kw": 459.8,
+      "rating_kw": 501.3
+    },
+    "13": {
+      "bus": "13",
+      "risk_score": 0.078,
+      "peak_load_kw": 153.0,
+      "rating_kw": 183.3
+    },
+    "135": {
+      "bus": "135",
+      "risk_score": 0.355,
+      "peak_load_kw": 427.5,
+      "rating_kw": 675.5
+    },
+    "14": {
+      "bus": "14",
+      "risk_score": 0.2,
+      "peak_load_kw": 323.5,
+      "rating_kw": 383.6
+    },
+    "149": {
+      "bus": "149",
+      "risk_score": 0.313,
+      "peak_load_kw": 359.6,
+      "rating_kw": 535.2
+    },
+    "15": {
+      "bus": "15",
+      "risk_score": 0.464,
+      "peak_load_kw": 398.7,
+      "rating_kw": 516.7
+    },
+    "150": {
+      "bus": "150",
+      "risk_score": 0.522,
+      "peak_load_kw": 402.7,
+      "rating_kw": 451.9
+    },
+    "150r": {
+      "bus": "150r",
+      "risk_score": 0.217,
+      "peak_load_kw": 276.8,
+      "rating_kw": 354.8
+    },
+    "151": {
+      "bus": "151",
+      "risk_score": 0.403,
+      "peak_load_kw": 345.7,
+      "rating_kw": 547.5
+    },
+    "152": {
+      "bus": "152",
+      "risk_score": 0.151,
+      "peak_load_kw": 359.3,
+      "rating_kw": 552.1
+    },
+    "16": {
+      "bus": "16",
+      "risk_score": 0.435,
+      "peak_load_kw": 354.3,
+      "rating_kw": 538.4
+    },
+    "160": {
+      "bus": "160",
+      "risk_score": 0.223,
+      "peak_load_kw": 279.5,
+      "rating_kw": 445.6
+    },
+    "160r": {
+      "bus": "160r",
+      "risk_score": 0.4,
+      "peak_load_kw": 344.8,
+      "rating_kw": 508.5
+    },
+    "17": {
+      "bus": "17",
+      "risk_score": 0.398,
+      "peak_load_kw": 264.1,
+      "rating_kw": 288.0
+    },
+    "18": {
+      "bus": "18",
+      "risk_score": 0.393,
+      "peak_load_kw": 476.2,
+      "rating_kw": 563.7
+    },
+    "19": {
+      "bus": "19",
+      "risk_score": 0.188,
+      "peak_load_kw": 211.4,
+      "rating_kw": 274.7
+    },
+    "197": {
+      "bus": "197",
+      "risk_score": 0.233,
+      "peak_load_kw": 475.7,
+      "rating_kw": 649.8
+    },
+    "2": {
+      "bus": "2",
+      "risk_score": 0.204,
+      "peak_load_kw": 379.5,
+      "rating_kw": 430.6
+    },
+    "20": {
+      "bus": "20",
+      "risk_score": 0.119,
+      "peak_load_kw": 536.7,
+      "rating_kw": 637.2
+    },
+    "21": {
+      "bus": "21",
+      "risk_score": 0.524,
+      "peak_load_kw": 404.8,
+      "rating_kw": 634.4
+    },
+    "22": {
+      "bus": "22",
+      "risk_score": 0.65,
+      "peak_load_kw": 432.9,
+      "rating_kw": 664.6
+    },
+    "23": {
+      "bus": "23",
+      "risk_score": 0.179,
+      "peak_load_kw": 203.4,
+      "rating_kw": 225.2
+    },
+    "24": {
+      "bus": "24",
+      "risk_score": 0.379,
+      "peak_load_kw": 668.5,
+      "rating_kw": 789.5
+    },
+    "25": {
+      "bus": "25",
+      "risk_score": 0.162,
+      "peak_load_kw": 289.6,
+      "rating_kw": 435.3
+    },
+    "250": {
+      "bus": "250",
+      "risk_score": 0.204,
+      "peak_load_kw": 224.1,
+      "rating_kw": 256.9
+    },
+    "25r": {
+      "bus": "25r",
+      "risk_score": 0.221,
+      "peak_load_kw": 310.2,
+      "rating_kw": 364.7
+    },
+    "26": {
+      "bus": "26",
+      "risk_score": 0.166,
+      "peak_load_kw": 65.0,
+      "rating_kw": 90.2
+    },
+    "27": {
+      "bus": "27",
+      "risk_score": 0.631,
+      "peak_load_kw": 261.0,
+      "rating_kw": 303.3
+    },
+    "28": {
+      "bus": "28",
+      "risk_score": 0.293,
+      "peak_load_kw": 430.3,
+      "rating_kw": 557.3
+    },
+    "29": {
+      "bus": "29",
+      "risk_score": 0.317,
+      "peak_load_kw": 401.0,
+      "rating_kw": 502.3
+    },
+    "3": {
+      "bus": "3",
+      "risk_score": 0.243,
+      "peak_load_kw": 253.1,
+      "rating_kw": 316.2
+    },
+    "30": {
+      "bus": "30",
+      "risk_score": 0.02,
+      "peak_load_kw": 624.2,
+      "rating_kw": 880.9
+    },
+    "300": {
+      "bus": "300",
+      "risk_score": 0.082,
+      "peak_load_kw": 253.0,
+      "rating_kw": 285.2
+    },
+    "300_open": {
+      "bus": "300_open",
+      "risk_score": 0.287,
+      "peak_load_kw": 346.0,
+      "rating_kw": 536.5
+    },
+    "31": {
+      "bus": "31",
+      "risk_score": 0.02,
+      "peak_load_kw": 211.1,
+      "rating_kw": 224.1
+    },
+    "32": {
+      "bus": "32",
+      "risk_score": 0.141,
+      "peak_load_kw": 214.7,
+      "rating_kw": 311.7
+    },
+    "33": {
+      "bus": "33",
+      "risk_score": 0.837,
+      "peak_load_kw": 94.8,
+      "rating_kw": 103.5
+    },
+    "34": {
+      "bus": "34",
+      "risk_score": 0.205,
+      "peak_load_kw": 100.7,
+      "rating_kw": 155.6
+    },
+    "35": {
+      "bus": "35",
+      "risk_score": 0.031,
+      "peak_load_kw": 302.3,
+      "rating_kw": 449.3
+    },
+    "36": {
+      "bus": "36",
+      "risk_score": 0.204,
+      "peak_load_kw": 432.2,
+      "rating_kw": 616.7
+    },
+    "37": {
+      "bus": "37",
+      "risk_score": 0.091,
+      "peak_load_kw": 550.1,
+      "rating_kw": 703.9
+    },
+    "38": {
+      "bus": "38",
+      "risk_score": 0.02,
+      "peak_load_kw": 390.4,
+      "rating_kw": 532.9
+    },
+    "39": {
+      "bus": "39",
+      "risk_score": 0.169,
+      "peak_load_kw": 222.8,
+      "rating_kw": 305.3
+    },
+    "4": {
+      "bus": "4",
+      "risk_score": 0.239,
+      "peak_load_kw": 275.6,
+      "rating_kw": 386.3
+    },
+    "40": {
+      "bus": "40",
+      "risk_score": 0.266,
+      "peak_load_kw": 607.9,
+      "rating_kw": 881.8
+    },
+    "41": {
+      "bus": "41",
+      "risk_score": 0.448,
+      "peak_load_kw": 145.6,
+      "rating_kw": 199.4
+    },
+    "42": {
+      "bus": "42",
+      "risk_score": 0.392,
+      "peak_load_kw": 71.2,
+      "rating_kw": 78.0
+    },
+    "43": {
+      "bus": "43",
+      "risk_score": 0.241,
+      "peak_load_kw": 320.0,
+      "rating_kw": 441.9
+    },
+    "44": {
+      "bus": "44",
+      "risk_score": 0.294,
+      "peak_load_kw": 219.4,
+      "rating_kw": 314.7
+    },
+    "45": {
+      "bus": "45",
+      "risk_score": 0.284,
+      "peak_load_kw": 126.7,
+      "rating_kw": 197.2
+    },
+    "450": {
+      "bus": "450",
+      "risk_score": 0.304,
+      "peak_load_kw": 319.2,
+      "rating_kw": 388.0
+    },
+    "46": {
+      "bus": "46",
+      "risk_score": 0.183,
+      "peak_load_kw": 278.9,
+      "rating_kw": 318.9
+    },
+    "47": {
+      "bus": "47",
+      "risk_score": 0.149,
+      "peak_load_kw": 490.6,
+      "rating_kw": 634.4
+    },
+    "48": {
+      "bus": "48",
+      "risk_score": 0.19,
+      "peak_load_kw": 416.9,
+      "rating_kw": 590.4
+    },
+    "49": {
+      "bus": "49",
+      "risk_score": 0.441,
+      "peak_load_kw": 367.3,
+      "rating_kw": 548.4
+    },
+    "5": {
+      "bus": "5",
+      "risk_score": 0.111,
+      "peak_load_kw": 567.6,
+      "rating_kw": 715.9
+    },
+    "50": {
+      "bus": "50",
+      "risk_score": 0.21,
+      "peak_load_kw": 214.1,
+      "rating_kw": 240.9
+    },
+    "51": {
+      "bus": "51",
+      "risk_score": 0.287,
+      "peak_load_kw": 53.4,
+      "rating_kw": 80.9
+    },
+    "52": {
+      "bus": "52",
+      "risk_score": 0.02,
+      "peak_load_kw": 237.3,
+      "rating_kw": 285.3
+    },
+    "53": {
+      "bus": "53",
+      "risk_score": 0.433,
+      "peak_load_kw": 394.6,
+      "rating_kw": 474.0
+    },
+    "54": {
+      "bus": "54",
+      "risk_score": 0.441,
+      "peak_load_kw": 352.4,
+      "rating_kw": 491.3
+    },
+    "55": {
+      "bus": "55",
+      "risk_score": 0.285,
+      "peak_load_kw": 198.2,
+      "rating_kw": 299.6
+    },
+    "56": {
+      "bus": "56",
+      "risk_score": 0.26,
+      "peak_load_kw": 472.7,
+      "rating_kw": 515.7
+    },
+    "57": {
+      "bus": "57",
+      "risk_score": 0.344,
+      "peak_load_kw": 598.8,
+      "rating_kw": 642.4
+    },
+    "58": {
+      "bus": "58",
+      "risk_score": 0.079,
+      "peak_load_kw": 273.2,
+      "rating_kw": 333.3
+    },
+    "59": {
+      "bus": "59",
+      "risk_score": 0.25,
+      "peak_load_kw": 327.1,
+      "rating_kw": 367.9
+    },
+    "6": {
+      "bus": "6",
+      "risk_score": 0.29,
+      "peak_load_kw": 289.9,
+      "rating_kw": 436.7
+    },
+    "60": {
+      "bus": "60",
+      "risk_score": 0.368,
+      "peak_load_kw": 326.1,
+      "rating_kw": 350.8
+    },
+    "61": {
+      "bus": "61",
+      "risk_score": 0.154,
+      "peak_load_kw": 215.2,
+      "rating_kw": 300.5
+    },
+    "610": {
+      "bus": "610",
+      "risk_score": 0.04,
+      "peak_load_kw": 177.2,
+      "rating_kw": 279.5
+    },
+    "61s": {
+      "bus": "61s",
+      "risk_score": 0.182,
+      "peak_load_kw": 282.7,
+      "rating_kw": 370.6
+    },
+    "62": {
+      "bus": "62",
+      "risk_score": 0.301,
+      "peak_load_kw": 328.9,
+      "rating_kw": 430.8
+    },
+    "63": {
+      "bus": "63",
+      "risk_score": 0.182,
+      "peak_load_kw": 300.4,
+      "rating_kw": 360.4
+    },
+    "64": {
+      "bus": "64",
+      "risk_score": 0.484,
+      "peak_load_kw": 197.5,
+      "rating_kw": 263.9
+    },
+    "65": {
+      "bus": "65",
+      "risk_score": 0.103,
+      "peak_load_kw": 143.0,
+      "rating_kw": 181.1
+    },
+    "66": {
+      "bus": "66",
+      "risk_score": 0.02,
+      "peak_load_kw": 399.3,
+      "rating_kw": 438.4
+    },
+    "67": {
+      "bus": "67",
+      "risk_score": 0.175,
+      "peak_load_kw": 524.3,
+      "rating_kw": 588.0
+    },
+    "68": {
+      "bus": "68",
+      "risk_score": 0.345,
+      "peak_load_kw": 132.1,
+      "rating_kw": 204.8
+    },
+    "69": {
+      "bus": "69",
+      "risk_score": 0.425,
+      "peak_load_kw": 190.1,
+      "rating_kw": 291.6
+    },
+    "7": {
+      "bus": "7",
+      "risk_score": 0.02,
+      "peak_load_kw": 417.4,
+      "rating_kw": 544.8
+    },
+    "70": {
+      "bus": "70",
+      "risk_score": 0.192,
+      "peak_load_kw": 264.9,
+      "rating_kw": 383.3
+    },
+    "71": {
+      "bus": "71",
+      "risk_score": 0.072,
+      "peak_load_kw": 403.5,
+      "rating_kw": 582.9
+    },
+    "72": {
+      "bus": "72",
+      "risk_score": 0.614,
+      "peak_load_kw": 388.7,
+      "rating_kw": 617.7
+    },
+    "73": {
+      "bus": "73",
+      "risk_score": 0.252,
+      "peak_load_kw": 492.0,
+      "rating_kw": 730.5
+    },
+    "74": {
+      "bus": "74",
+      "risk_score": 0.597,
+      "peak_load_kw": 188.5,
+      "rating_kw": 286.6
+    },
+    "75": {
+      "bus": "75",
+      "risk_score": 0.334,
+      "peak_load_kw": 286.2,
+      "rating_kw": 370.0
+    },
+    "76": {
+      "bus": "76",
+      "risk_score": 0.195,
+      "peak_load_kw": 92.5,
+      "rating_kw": 121.9
+    },
+    "77": {
+      "bus": "77",
+      "risk_score": 0.332,
+      "peak_load_kw": 570.8,
+      "rating_kw": 619.4
+    },
+    "78": {
+      "bus": "78",
+      "risk_score": 0.186,
+      "peak_load_kw": 346.6,
+      "rating_kw": 427.8
+    },
+    "79": {
+      "bus": "79",
+      "risk_score": 0.194,
+      "peak_load_kw": 338.2,
+      "rating_kw": 382.7
+    },
+    "8": {
+      "bus": "8",
+      "risk_score": 0.253,
+      "peak_load_kw": 96.7,
+      "rating_kw": 146.2
+    },
+    "80": {
+      "bus": "80",
+      "risk_score": 0.02,
+      "peak_load_kw": 194.3,
+      "rating_kw": 256.7
+    },
+    "81": {
+      "bus": "81",
+      "risk_score": 0.259,
+      "peak_load_kw": 376.4,
+      "rating_kw": 441.0
+    },
+    "82": {
+      "bus": "82",
+      "risk_score": 0.258,
+      "peak_load_kw": 205.7,
+      "rating_kw": 298.5
+    },
+    "83": {
+      "bus": "83",
+      "risk_score": 0.131,
+      "peak_load_kw": 210.5,
+      "rating_kw": 318.7
+    },
+    "84": {
+      "bus": "84",
+      "risk_score": 0.229,
+      "peak_load_kw": 207.5,
+      "rating_kw": 261.4
+    },
+    "85": {
+      "bus": "85",
+      "risk_score": 0.02,
+      "peak_load_kw": 489.5,
+      "rating_kw": 570.0
+    },
+    "86": {
+      "bus": "86",
+      "risk_score": 0.02,
+      "peak_load_kw": 537.8,
+      "rating_kw": 719.7
+    },
+    "87": {
+      "bus": "87",
+      "risk_score": 0.233,
+      "peak_load_kw": 235.9,
+      "rating_kw": 317.2
+    },
+    "88": {
+      "bus": "88",
+      "risk_score": 0.276,
+      "peak_load_kw": 129.2,
+      "rating_kw": 137.6
+    },
+    "89": {
+      "bus": "89",
+      "risk_score": 0.243,
+      "peak_load_kw": 485.6,
+      "rating_kw": 616.8
+    },
+    "9": {
+      "bus": "9",
+      "risk_score": 0.085,
+      "peak_load_kw": 376.8,
+      "rating_kw": 497.4
+    },
+    "90": {
+      "bus": "90",
+      "risk_score": 0.225,
+      "peak_load_kw": 301.3,
+      "rating_kw": 405.6
+    },
+    "91": {
+      "bus": "91",
+      "risk_score": 0.487,
+      "peak_load_kw": 40.0,
+      "rating_kw": 62.3
+    },
+    "92": {
+      "bus": "92",
+      "risk_score": 0.46,
+      "peak_load_kw": 300.9,
+      "rating_kw": 337.0
+    },
+    "93": {
+      "bus": "93",
+      "risk_score": 0.399,
+      "peak_load_kw": 84.6,
+      "rating_kw": 130.7
+    },
+    "94": {
+      "bus": "94",
+      "risk_score": 0.301,
+      "peak_load_kw": 199.0,
+      "rating_kw": 229.9
+    },
+    "94_open": {
+      "bus": "94_open",
+      "risk_score": 0.034,
+      "peak_load_kw": 84.7,
+      "rating_kw": 94.9
+    },
+    "95": {
+      "bus": "95",
+      "risk_score": 0.246,
+      "peak_load_kw": 325.5,
+      "rating_kw": 376.5
+    },
+    "96": {
+      "bus": "96",
+      "risk_score": 0.521,
+      "peak_load_kw": 350.4,
+      "rating_kw": 430.0
+    },
+    "97": {
+      "bus": "97",
+      "risk_score": 0.456,
+      "peak_load_kw": 200.3,
+      "rating_kw": 221.9
+    },
+    "98": {
+      "bus": "98",
+      "risk_score": 0.199,
+      "peak_load_kw": 311.4,
+      "rating_kw": 414.4
+    },
+    "99": {
+      "bus": "99",
+      "risk_score": 0.386,
+      "peak_load_kw": 319.7,
+      "rating_kw": 428.9
+    },
+    "9r": {
+      "bus": "9r",
+      "risk_score": 0.34,
+      "peak_load_kw": 194.7,
+      "rating_kw": 248.7
+    }
+  },
+  "risk_leaderboard": [
+    {
+      "id": "F-33_PHX",
+      "bus": "33",
+      "risk_score": 0.837,
+      "peak_mw": 0.09
+    },
+    {
+      "id": "F-22_PHX",
+      "bus": "22",
+      "risk_score": 0.65,
+      "peak_mw": 0.43
+    },
+    {
+      "id": "F-27_PHX",
+      "bus": "27",
+      "risk_score": 0.631,
+      "peak_mw": 0.26
+    },
+    {
+      "id": "F-114_PHX",
+      "bus": "114",
+      "risk_score": 0.62,
+      "peak_mw": 0.4
+    },
+    {
+      "id": "F-72_PHX",
+      "bus": "72",
+      "risk_score": 0.614,
+      "peak_mw": 0.39
+    },
+    {
+      "id": "F-74_PHX",
+      "bus": "74",
+      "risk_score": 0.597,
+      "peak_mw": 0.19
+    },
+    {
+      "id": "F-21_PHX",
+      "bus": "21",
+      "risk_score": 0.524,
+      "peak_mw": 0.4
+    },
+    {
+      "id": "F-150_PHX",
+      "bus": "150",
+      "risk_score": 0.522,
+      "peak_mw": 0.4
+    },
+    {
+      "id": "F-96_PHX",
+      "bus": "96",
+      "risk_score": 0.521,
+      "peak_mw": 0.35
+    },
+    {
+      "id": "F-91_PHX",
+      "bus": "91",
+      "risk_score": 0.487,
+      "peak_mw": 0.04
+    }
+  ],
+  "feeder_rollup": {
+    "peak_mw": 3500.0,
+    "peak_hour": 17,
+    "capacity_mw": 4600.0,
+    "load_factor": 0.761
+  },
+  "opendss": {
+    "converged": true,
+    "scenario": "baseline",
+    "top_bus_deviations": [
+      {
+        "bus": "61s",
+        "vdev_pu": -0.0645
+      },
+      {
+        "bus": "31",
+        "vdev_pu": 0.0625
+      },
+      {
+        "bus": "28",
+        "vdev_pu": 0.0622
+      },
+      {
+        "bus": "56",
+        "vdev_pu": -0.0588
+      },
+      {
+        "bus": "34",
+        "vdev_pu": -0.0489
+      }
+    ],
+    "overloads": []
+  },
+  "weather": {
+    "peak_temp_f": 108.0,
+    "peak_hour": 15,
+    "source": "synthetic"
+  },
+  "top_drivers": [
+    {
+      "name": "temp_c",
+      "ig": 0.42
+    },
+    {
+      "name": "hour_sin",
+      "ig": 0.21
+    },
+    {
+      "name": "dewpoint_c",
+      "ig": 0.15
+    },
+    {
+      "name": "is_weekend",
+      "ig": 0.08
+    },
+    {
+      "name": "dow_sin",
+      "ig": 0.07
+    }
+  ],
+  "recommended_actions": [
+    {
+      "label": "MONITOR FEEDER_17_PHX SECONDARY",
+      "severity": "primary"
+    },
+    {
+      "label": "PRE-STAGE CREW NORTH_VALLEY_DEPOT",
+      "severity": "primary"
+    },
+    {
+      "label": "ROUTINE VOLTAGE REG CHECK 15:00",
+      "severity": "primary"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "train_mae_kw": 2370.12,
+  "val_mae_kw": 3525.18,
+  "test_mae_kw": 4574.04,
+  "persistence_mae_kw": 5603.75,
+  "improvement_pct": 18.38,
+  "n_params": 59890,
+  "top_drivers": [
+    {
+      "name": "temp_c",
+      "ig": 0.42
+    },
+    {
+      "name": "hour_sin",
+      "ig": 0.21
+    },
+    {
+      "name": "dewpoint_c",
+      "ig": 0.15
+    },
+    {
+      "name": "is_weekend",
+      "ig": 0.08
+    },
+    {
+      "name": "dow_sin",
+      "ig": 0.07
+    }
+  ]
+}

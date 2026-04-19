@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    background-color: #111319;
+    color: #e1e2ea;
+  }
+}
+
+/* Etched seam helpers from frontend-1.html */
+.etched-r { border-right: 1px solid #3c4947; }
+.etched-l { border-left: 1px solid #3c4947; }
+.etched-b { border-bottom: 1px solid #3c4947; }
+.etched-t { border-top: 1px solid #3c4947; }
+
+/* Material Symbols baseline weight/fill tuned for the tactical layout */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Custom 4px scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #111319; }
+::-webkit-scrollbar-thumb { background: #3c4947; }
+::-webkit-scrollbar-thumb:hover { background: #4fdbc8; }
+
+/* Violation pulse animation */
+@keyframes pulse-red {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 179, 173, 0.45); }
+  70%  { box-shadow: 0 0 0 10px rgba(255, 179, 173, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 179, 173, 0); }
+}
+.pulse-violation { animation: pulse-red 2s infinite; }
+
+/* SVG-specific pulsing fill (box-shadow does not apply to SVG geometry) */
+@keyframes pulse-red-stroke {
+  0%, 100% { stroke-opacity: 1; stroke-width: 3; }
+  50%      { stroke-opacity: 0.35; stroke-width: 5; }
+}
+.pulse-violation-svg { animation: pulse-red-stroke 1.6s ease-in-out infinite; }
+
+@keyframes blink { to { visibility: hidden; } }
+.blinking { animation: blink 1s steps(5, start) infinite; }
