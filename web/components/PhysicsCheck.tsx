@@ -3,6 +3,16 @@
 import { useScenario } from "@/lib/context";
 import type { TomorrowForecast } from "@/lib/types";
 
+function isFocused(
+  current: { bus?: string; element?: string } | null | undefined,
+  match: { bus?: string; element?: string },
+): boolean {
+  if (!current) return false;
+  if (match.bus && current.bus === match.bus) return true;
+  if (match.element && current.element === match.element) return true;
+  return false;
+}
+
 function formatVdev(v: number): string {
   const s = v >= 0 ? "+" : "-";
   return `${s}${Math.abs(v).toFixed(3)} p.u.`;
@@ -15,8 +25,17 @@ function topOverloadLabel(forecast: TomorrowForecast): string {
 }
 
 export default function PhysicsCheck() {
-  const { active, compareWith, current, baseline, heat, ev } = useScenario();
+  const { active, compareWith, current, baseline, heat, ev, focus, setFocus } =
+    useScenario();
   const { opendss } = current;
+
+  const onPick = (next: { bus?: string; element?: string; source: string }) => {
+    if (isFocused(focus, next)) {
+      setFocus(null);
+    } else {
+      setFocus(next);
+    }
+  };
   const hasOverloads = opendss.overloads.length > 0;
   const showViolationBanner =
     (active === "heat" || active === "ev") && hasOverloads;
@@ -126,13 +145,39 @@ export default function PhysicsCheck() {
                     : mag > 0.03
                       ? "text-secondary"
                       : "text-on-surface";
+                const sel = isFocused(focus, { bus: d.bus });
                 return (
-                  <li
-                    key={d.bus}
-                    className="flex justify-between text-[10px] border-b border-outline-variant/30 py-1"
-                  >
-                    <span className="text-on-surface">BUS_{d.bus}</span>
-                    <span className={color}>{formatVdev(d.vdev_pu)}</span>
+                  <li key={d.bus}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onPick({ bus: d.bus, source: "BUS_DEV" })
+                      }
+                      aria-pressed={sel}
+                      title={
+                        sel
+                          ? "Click to clear focus"
+                          : `Highlight bus ${d.bus} on map`
+                      }
+                      className={`w-full flex justify-between text-[10px] border-b border-outline-variant/30 py-1 px-1 -mx-1 cursor-pointer transition-colors ${
+                        sel
+                          ? "bg-primary/15 border-l-2 border-l-primary"
+                          : "border-l-2 border-l-transparent hover:bg-surface-container-low"
+                      }`}
+                    >
+                      <span className="text-on-surface flex items-center gap-1.5">
+                        {sel && (
+                          <span
+                            className="material-symbols-outlined text-primary text-[12px] leading-none"
+                            aria-hidden
+                          >
+                            my_location
+                          </span>
+                        )}
+                        BUS_{d.bus}
+                      </span>
+                      <span className={color}>{formatVdev(d.vdev_pu)}</span>
+                    </button>
                   </li>
                 );
               })}
@@ -155,17 +200,42 @@ export default function PhysicsCheck() {
                     : o.loading_pct >= 100
                       ? "text-secondary"
                       : "text-tertiary";
+                const elementKey = o.element.trim().toLowerCase();
+                const sel = isFocused(focus, { element: elementKey });
                 return (
-                  <li
-                    key={o.element}
-                    className="flex justify-between text-[10px] border-b border-outline-variant/30 py-1 gap-2"
-                  >
-                    <span className="text-on-surface truncate">
-                      {o.element}
-                    </span>
-                    <span className={`${color} whitespace-nowrap`}>
-                      {o.loading_pct.toFixed(1)}% / {o.limit_mva.toFixed(1)} MVA
-                    </span>
+                  <li key={o.element}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onPick({ element: elementKey, source: "OVERLOAD" })
+                      }
+                      aria-pressed={sel}
+                      title={
+                        sel
+                          ? "Click to clear focus"
+                          : `Highlight line ${o.element} on map`
+                      }
+                      className={`w-full flex justify-between text-[10px] border-b border-outline-variant/30 py-1 gap-2 px-1 -mx-1 cursor-pointer transition-colors ${
+                        sel
+                          ? "bg-error/15 border-l-2 border-l-error"
+                          : "border-l-2 border-l-transparent hover:bg-surface-container-low"
+                      }`}
+                    >
+                      <span className="text-on-surface truncate flex items-center gap-1.5">
+                        {sel && (
+                          <span
+                            className="material-symbols-outlined text-error text-[12px] leading-none"
+                            aria-hidden
+                          >
+                            my_location
+                          </span>
+                        )}
+                        {o.element}
+                      </span>
+                      <span className={`${color} whitespace-nowrap`}>
+                        {o.loading_pct.toFixed(1)}% / {o.limit_mva.toFixed(1)} MVA
+                      </span>
+                    </button>
                   </li>
                 );
               })}

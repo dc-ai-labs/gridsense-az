@@ -254,12 +254,12 @@
     {
       "bus": "300",
       "x_norm": 0.5954128440366973,
-      "y_norm": 1.0
+      "y_norm": 1
     },
     {
       "bus": "300_open",
-      "x_norm": 0.0,
-      "y_norm": 0.0
+      "x_norm": 0,
+      "y_norm": 0
     },
     {
       "bus": "31",
@@ -343,7 +343,7 @@
     },
     {
       "bus": "450",
-      "x_norm": 1.0,
+      "x_norm": 1,
       "y_norm": 0.5236907730673317
     },
     {
@@ -628,8 +628,8 @@
     },
     {
       "bus": "94_open",
-      "x_norm": 0.0,
-      "y_norm": 0.0
+      "x_norm": 0,
+      "y_norm": 0
     },
     {
       "bus": "95",
@@ -671,62 +671,74 @@
     {
       "from": "150r",
       "to": "149",
-      "kind": "switch"
+      "kind": "switch",
+      "name": "sw1"
     },
     {
       "from": "149",
       "to": "1",
-      "kind": "line"
+      "kind": "line",
+      "name": "l115"
     },
     {
       "from": "1",
       "to": "2",
-      "kind": "line"
+      "kind": "line",
+      "name": "l1"
     },
     {
       "from": "1",
       "to": "3",
-      "kind": "line"
+      "kind": "line",
+      "name": "l2"
     },
     {
       "from": "1",
       "to": "7",
-      "kind": "line"
+      "kind": "line",
+      "name": "l3"
     },
     {
       "from": "3",
       "to": "4",
-      "kind": "line"
+      "kind": "line",
+      "name": "l4"
     },
     {
       "from": "3",
       "to": "5",
-      "kind": "line"
+      "kind": "line",
+      "name": "l5"
     },
     {
       "from": "7",
       "to": "8",
-      "kind": "line"
+      "kind": "line",
+      "name": "l7"
     },
     {
       "from": "5",
       "to": "6",
-      "kind": "line"
+      "kind": "line",
+      "name": "l6"
     },
     {
       "from": "8",
       "to": "12",
-      "kind": "line"
+      "kind": "line",
+      "name": "l8"
     },
     {
       "from": "8",
       "to": "9",
-      "kind": "line"
+      "kind": "line",
+      "name": "l9"
     },
     {
       "from": "8",
       "to": "13",
-      "kind": "line"
+      "kind": "line",
+      "name": "l10"
     },
     {
       "from": "9",
@@ -736,92 +748,110 @@
     {
       "from": "13",
       "to": "34",
-      "kind": "line"
+      "kind": "line",
+      "name": "l12"
     },
     {
       "from": "13",
       "to": "18",
-      "kind": "line"
+      "kind": "line",
+      "name": "l13"
     },
     {
       "from": "13",
       "to": "152",
-      "kind": "switch"
+      "kind": "switch",
+      "name": "sw2"
     },
     {
       "from": "9r",
       "to": "14",
-      "kind": "line"
+      "kind": "line",
+      "name": "l11"
     },
     {
       "from": "14",
       "to": "11",
-      "kind": "line"
+      "kind": "line",
+      "name": "l14"
     },
     {
       "from": "14",
       "to": "10",
-      "kind": "line"
+      "kind": "line",
+      "name": "l15"
     },
     {
       "from": "34",
       "to": "15",
-      "kind": "line"
+      "kind": "line",
+      "name": "l34"
     },
     {
       "from": "18",
       "to": "19",
-      "kind": "line"
+      "kind": "line",
+      "name": "l18"
     },
     {
       "from": "18",
       "to": "21",
-      "kind": "line"
+      "kind": "line",
+      "name": "l19"
     },
     {
       "from": "18",
       "to": "135",
-      "kind": "switch"
+      "kind": "switch",
+      "name": "sw3"
     },
     {
       "from": "15",
       "to": "16",
-      "kind": "line"
+      "kind": "line",
+      "name": "l16"
     },
     {
       "from": "15",
       "to": "17",
-      "kind": "line"
+      "kind": "line",
+      "name": "l17"
     },
     {
       "from": "19",
       "to": "20",
-      "kind": "line"
+      "kind": "line",
+      "name": "l20"
     },
     {
       "from": "21",
       "to": "22",
-      "kind": "line"
+      "kind": "line",
+      "name": "l21"
     },
     {
       "from": "21",
       "to": "23",
-      "kind": "line"
+      "kind": "line",
+      "name": "l22"
     },
     {
       "from": "23",
       "to": "24",
-      "kind": "line"
+      "kind": "line",
+      "name": "l23"
     },
     {
       "from": "23",
       "to": "25",
-      "kind": "line"
+      "kind": "line",
+      "name": "l24"
     },
     {
       "from": "25",
       "to": "28",
-      "kind": "line"
+      "kind": "line",
+      "name": "l26"
     },
     {
       "from": "25",
@@ -831,482 +861,578 @@
     {
       "from": "25r",
       "to": "26",
-      "kind": "line"
+      "kind": "line",
+      "name": "l25"
     },
     {
       "from": "26",
       "to": "27",
-      "kind": "line"
+      "kind": "line",
+      "name": "l27"
     },
     {
       "from": "26",
       "to": "31",
-      "kind": "line"
+      "kind": "line",
+      "name": "l28"
     },
     {
       "from": "28",
       "to": "29",
-      "kind": "line"
+      "kind": "line",
+      "name": "l30"
     },
     {
       "from": "27",
       "to": "33",
-      "kind": "line"
+      "kind": "line",
+      "name": "l29"
     },
     {
       "from": "31",
       "to": "32",
-      "kind": "line"
+      "kind": "line",
+      "name": "l33"
     },
     {
       "from": "29",
       "to": "30",
-      "kind": "line"
+      "kind": "line",
+      "name": "l31"
     },
     {
       "from": "30",
       "to": "250",
-      "kind": "line"
+      "kind": "line",
+      "name": "l32"
     },
     {
       "from": "35",
       "to": "36",
-      "kind": "line"
+      "kind": "line",
+      "name": "l35"
     },
     {
       "from": "35",
       "to": "40",
-      "kind": "line"
+      "kind": "line",
+      "name": "l36"
     },
     {
       "from": "35",
       "to": "135",
-      "kind": "line"
+      "kind": "line",
+      "name": "l114"
     },
     {
       "from": "36",
       "to": "37",
-      "kind": "line"
+      "kind": "line",
+      "name": "l37"
     },
     {
       "from": "36",
       "to": "38",
-      "kind": "line"
+      "kind": "line",
+      "name": "l38"
     },
     {
       "from": "40",
       "to": "41",
-      "kind": "line"
+      "kind": "line",
+      "name": "l40"
     },
     {
       "from": "40",
       "to": "42",
-      "kind": "line"
+      "kind": "line",
+      "name": "l41"
     },
     {
       "from": "38",
       "to": "39",
-      "kind": "line"
+      "kind": "line",
+      "name": "l39"
     },
     {
       "from": "42",
       "to": "43",
-      "kind": "line"
+      "kind": "line",
+      "name": "l42"
     },
     {
       "from": "42",
       "to": "44",
-      "kind": "line"
+      "kind": "line",
+      "name": "l43"
     },
     {
       "from": "44",
       "to": "45",
-      "kind": "line"
+      "kind": "line",
+      "name": "l44"
     },
     {
       "from": "44",
       "to": "47",
-      "kind": "line"
+      "kind": "line",
+      "name": "l45"
     },
     {
       "from": "45",
       "to": "46",
-      "kind": "line"
+      "kind": "line",
+      "name": "l46"
     },
     {
       "from": "47",
       "to": "48",
-      "kind": "line"
+      "kind": "line",
+      "name": "l47"
     },
     {
       "from": "47",
       "to": "49",
-      "kind": "line"
+      "kind": "line",
+      "name": "l48"
     },
     {
       "from": "49",
       "to": "50",
-      "kind": "line"
+      "kind": "line",
+      "name": "l49"
     },
     {
       "from": "50",
       "to": "51",
-      "kind": "line"
+      "kind": "line",
+      "name": "l50"
     },
     {
       "from": "51",
       "to": "151",
-      "kind": "line"
+      "kind": "line",
+      "name": "l51"
     },
     {
       "from": "151",
       "to": "300_open",
-      "kind": "switch"
+      "kind": "switch",
+      "name": "sw7"
     },
     {
       "from": "52",
       "to": "53",
-      "kind": "line"
+      "kind": "line",
+      "name": "l52"
     },
     {
       "from": "52",
       "to": "152",
-      "kind": "line"
+      "kind": "line",
+      "name": "l116"
     },
     {
       "from": "53",
       "to": "54",
-      "kind": "line"
+      "kind": "line",
+      "name": "l53"
     },
     {
       "from": "54",
       "to": "55",
-      "kind": "line"
+      "kind": "line",
+      "name": "l54"
     },
     {
       "from": "54",
       "to": "57",
-      "kind": "line"
+      "kind": "line",
+      "name": "l55"
     },
     {
       "from": "54",
       "to": "94_open",
-      "kind": "switch"
+      "kind": "switch",
+      "name": "sw8"
     },
     {
       "from": "55",
       "to": "56",
-      "kind": "line"
+      "kind": "line",
+      "name": "l56"
     },
     {
       "from": "57",
       "to": "58",
-      "kind": "line"
+      "kind": "line",
+      "name": "l57"
     },
     {
       "from": "57",
       "to": "60",
-      "kind": "line"
+      "kind": "line",
+      "name": "l58"
     },
     {
       "from": "58",
       "to": "59",
-      "kind": "line"
+      "kind": "line",
+      "name": "l59"
     },
     {
       "from": "60",
       "to": "61",
-      "kind": "line"
+      "kind": "line",
+      "name": "l60"
     },
     {
       "from": "60",
       "to": "62",
-      "kind": "line"
+      "kind": "line",
+      "name": "l61"
     },
     {
       "from": "60",
       "to": "160",
-      "kind": "switch"
+      "kind": "switch",
+      "name": "sw4"
     },
     {
       "from": "61",
       "to": "61s",
-      "kind": "switch"
+      "kind": "switch",
+      "name": "sw6"
     },
     {
       "from": "62",
       "to": "63",
-      "kind": "line"
+      "kind": "line",
+      "name": "l62"
     },
     {
       "from": "63",
       "to": "64",
-      "kind": "line"
+      "kind": "line",
+      "name": "l63"
     },
     {
       "from": "64",
       "to": "65",
-      "kind": "line"
+      "kind": "line",
+      "name": "l64"
     },
     {
       "from": "65",
       "to": "66",
-      "kind": "line"
+      "kind": "line",
+      "name": "l65"
     },
     {
       "from": "67",
       "to": "68",
-      "kind": "line"
+      "kind": "line",
+      "name": "l66"
     },
     {
       "from": "67",
       "to": "72",
-      "kind": "line"
+      "kind": "line",
+      "name": "l67"
     },
     {
       "from": "67",
       "to": "97",
-      "kind": "line"
+      "kind": "line",
+      "name": "l68"
     },
     {
       "from": "67",
       "to": "160r",
-      "kind": "line"
+      "kind": "line",
+      "name": "l117"
     },
     {
       "from": "68",
       "to": "69",
-      "kind": "line"
+      "kind": "line",
+      "name": "l69"
     },
     {
       "from": "72",
       "to": "73",
-      "kind": "line"
+      "kind": "line",
+      "name": "l72"
     },
     {
       "from": "72",
       "to": "76",
-      "kind": "line"
+      "kind": "line",
+      "name": "l73"
     },
     {
       "from": "97",
       "to": "98",
-      "kind": "line"
+      "kind": "line",
+      "name": "l96"
     },
     {
       "from": "97",
       "to": "197",
-      "kind": "switch"
+      "kind": "switch",
+      "name": "sw5"
     },
     {
       "from": "69",
       "to": "70",
-      "kind": "line"
+      "kind": "line",
+      "name": "l70"
     },
     {
       "from": "70",
       "to": "71",
-      "kind": "line"
+      "kind": "line",
+      "name": "l71"
     },
     {
       "from": "73",
       "to": "74",
-      "kind": "line"
+      "kind": "line",
+      "name": "l74"
     },
     {
       "from": "76",
       "to": "77",
-      "kind": "line"
+      "kind": "line",
+      "name": "l76"
     },
     {
       "from": "76",
       "to": "86",
-      "kind": "line"
+      "kind": "line",
+      "name": "l77"
     },
     {
       "from": "74",
       "to": "75",
-      "kind": "line"
+      "kind": "line",
+      "name": "l75"
     },
     {
       "from": "77",
       "to": "78",
-      "kind": "line"
+      "kind": "line",
+      "name": "l78"
     },
     {
       "from": "86",
       "to": "87",
-      "kind": "line"
+      "kind": "line",
+      "name": "l86"
     },
     {
       "from": "78",
       "to": "79",
-      "kind": "line"
+      "kind": "line",
+      "name": "l79"
     },
     {
       "from": "78",
       "to": "80",
-      "kind": "line"
+      "kind": "line",
+      "name": "l80"
     },
     {
       "from": "80",
       "to": "81",
-      "kind": "line"
+      "kind": "line",
+      "name": "l81"
     },
     {
       "from": "81",
       "to": "82",
-      "kind": "line"
+      "kind": "line",
+      "name": "l82"
     },
     {
       "from": "81",
       "to": "84",
-      "kind": "line"
+      "kind": "line",
+      "name": "l83"
     },
     {
       "from": "82",
       "to": "83",
-      "kind": "line"
+      "kind": "line",
+      "name": "l84"
     },
     {
       "from": "84",
       "to": "85",
-      "kind": "line"
+      "kind": "line",
+      "name": "l85"
     },
     {
       "from": "87",
       "to": "88",
-      "kind": "line"
+      "kind": "line",
+      "name": "l87"
     },
     {
       "from": "87",
       "to": "89",
-      "kind": "line"
+      "kind": "line",
+      "name": "l88"
     },
     {
       "from": "89",
       "to": "90",
-      "kind": "line"
+      "kind": "line",
+      "name": "l89"
     },
     {
       "from": "89",
       "to": "91",
-      "kind": "line"
+      "kind": "line",
+      "name": "l90"
     },
     {
       "from": "91",
       "to": "92",
-      "kind": "line"
+      "kind": "line",
+      "name": "l91"
     },
     {
       "from": "91",
       "to": "93",
-      "kind": "line"
+      "kind": "line",
+      "name": "l92"
     },
     {
       "from": "93",
       "to": "94",
-      "kind": "line"
+      "kind": "line",
+      "name": "l93"
     },
     {
       "from": "93",
       "to": "95",
-      "kind": "line"
+      "kind": "line",
+      "name": "l94"
     },
     {
       "from": "95",
       "to": "96",
-      "kind": "line"
+      "kind": "line",
+      "name": "l95"
     },
     {
       "from": "98",
       "to": "99",
-      "kind": "line"
+      "kind": "line",
+      "name": "l97"
     },
     {
       "from": "99",
       "to": "100",
-      "kind": "line"
+      "kind": "line",
+      "name": "l98"
     },
     {
       "from": "100",
       "to": "450",
-      "kind": "line"
+      "kind": "line",
+      "name": "l99"
     },
     {
       "from": "197",
       "to": "101",
-      "kind": "line"
+      "kind": "line",
+      "name": "l118"
     },
     {
       "from": "101",
       "to": "102",
-      "kind": "line"
+      "kind": "line",
+      "name": "l100"
     },
     {
       "from": "101",
       "to": "105",
-      "kind": "line"
+      "kind": "line",
+      "name": "l101"
     },
     {
       "from": "102",
       "to": "103",
-      "kind": "line"
+      "kind": "line",
+      "name": "l102"
     },
     {
       "from": "105",
       "to": "106",
-      "kind": "line"
+      "kind": "line",
+      "name": "l104"
     },
     {
       "from": "105",
       "to": "108",
-      "kind": "line"
+      "kind": "line",
+      "name": "l105"
     },
     {
       "from": "103",
       "to": "104",
-      "kind": "line"
+      "kind": "line",
+      "name": "l103"
     },
     {
       "from": "106",
       "to": "107",
-      "kind": "line"
+      "kind": "line",
+      "name": "l106"
     },
     {
       "from": "108",
       "to": "109",
-      "kind": "line"
+      "kind": "line",
+      "name": "l107"
     },
     {
       "from": "108",
       "to": "300",
-      "kind": "line"
+      "kind": "line",
+      "name": "l108"
     },
     {
       "from": "109",
       "to": "110",
-      "kind": "line"
+      "kind": "line",
+      "name": "l109"
     },
     {
       "from": "110",
       "to": "111",
-      "kind": "line"
+      "kind": "line",
+      "name": "l110"
     },
     {
       "from": "110",
       "to": "112",
-      "kind": "line"
+      "kind": "line",
+      "name": "l111"
     },
     {
       "from": "112",
       "to": "113",
-      "kind": "line"
+      "kind": "line",
+      "name": "l112"
     },
     {
       "from": "113",
       "to": "114",
-      "kind": "line"
+      "kind": "line",
+      "name": "l113"
     },
     {
       "from": "160r",

@@ -88,3 +88,24 @@
 .tactical-map-leaflet .leaflet-overlay-pane svg .pulse-violation-svg {
   animation: pulse-red-stroke 1.6s ease-in-out infinite;
 }
+
+/* Floating focus label for PhysicsCheck-driven highlight */
+.tactical-map-leaflet .tactical-focus-label {
+  pointer-events: none;
+  background: transparent;
+  border: 0;
+}
+.tactical-map-leaflet .tactical-focus-label span {
+  display: inline-block;
+  transform: translate(-50%, -100%);
+  white-space: nowrap;
+  background: rgba(17, 19, 25, 0.92);
+  border: 1px solid #4fdbc8;
+  color: #e1e2ea;
+  padding: 2px 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: -10px;
+}
