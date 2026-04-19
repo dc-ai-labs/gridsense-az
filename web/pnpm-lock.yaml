@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      leaflet:
+        specifier: ^1.9.4
+        version: 1.9.4
       next:
         specifier: 14.2.15
         version: 14.2.15(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -21,6 +24,9 @@ importers:
         specifier: 2.12.7
         version: 2.12.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     devDependencies:
+      '@types/leaflet':
+        specifier: ^1.9.21
+        version: 1.9.21
       '@types/node':
         specifier: 20.14.10
         version: 20.14.10
@@ -171,6 +177,12 @@ packages:
 
   '@types/d3-timer@3.0.2':
     resolution: {integrity: sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw==}
+
+  '@types/geojson@7946.0.16':
+    resolution: {integrity: sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg==}
+
+  '@types/leaflet@1.9.21':
+    resolution: {integrity: sha512-TbAd9DaPGSnzp6QvtYngntMZgcRk+igFELwR2N99XZn7RXUdKgsXMR+28bUO0rPsWp8MIu/f47luLIQuSLYv/w==}
 
   '@types/node@20.14.10':
     resolution: {integrity: sha512-MdiXf+nDuMvY0gJKxyfZ7/6UFsETO7mGKF54MVD/ekJS6HdFtpZFBgrh6Pseu64XTb2MLyFPlbW6hj8HYRQNOQ==}
@@ -403,6 +415,9 @@ packages:
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
+
+  leaflet@1.9.4:
+    resolution: {integrity: sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==}
 
   lilconfig@2.1.0:
     resolution: {integrity: sha512-utWOt/GHzuUxnLKxB6dk81RoOeoNeHgbrXiuGk4yyF5qlRz+iIVWu56E2fqGHFrXz0QNUhLB/8nKqvRH66JKGQ==}
@@ -781,6 +796,12 @@ snapshots:
 
   '@types/d3-timer@3.0.2': {}
 
+  '@types/geojson@7946.0.16': {}
+
+  '@types/leaflet@1.9.21':
+    dependencies:
+      '@types/geojson': 7946.0.16
+
   '@types/node@20.14.10':
     dependencies:
       undici-types: 5.26.5
@@ -982,6 +1003,8 @@ snapshots:
   jiti@1.21.7: {}
 
   js-tokens@4.0.0: {}
+
+  leaflet@1.9.4: {}
 
   lilconfig@2.1.0: {}
 
