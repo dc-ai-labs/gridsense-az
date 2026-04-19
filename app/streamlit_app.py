@@ -36,6 +36,13 @@ import pandas as pd
 import streamlit as st
 
 from app.components.feeder_map import build_deck, build_map_data
+from app.components.forecast_chart import (
+    aggregate_system_forecast,
+    build_forecast_figure,
+    get_cached_predictor,
+    run_forecast,
+    select_bus_forecast,
+)
 from gridsense.decision import (
     ScenarioResult,
     combined_scenario,
@@ -108,6 +115,20 @@ def _cached_feature_bundle_summary(
 
     bundle = build_hourly_features(start=start, end=end)
     return bundle.times, bundle.y_kw.sum(axis=1)
+
+
+@st.cache_resource(show_spinner=False)
+def _cached_feature_bundle(start: str, end: str):
+    """Return the full :class:`FeatureBundle` for model-driven forecasting.
+
+    Cached with ``cache_resource`` rather than ``cache_data`` because the
+    bundle contains large ``numpy`` arrays and a ``pandas.DatetimeIndex``
+    that we'd rather not round-trip through Streamlit's pickle cache on
+    every rerun.
+    """
+    from gridsense.features import build_hourly_features
+
+    return build_hourly_features(start=start, end=end)
 
 
 # ---------------------------------------------------------------------------
@@ -196,31 +217,107 @@ def _render_map_tab(graph, voltages: dict[str, float]) -> None:
 
 def _render_forecast_tab(start_date: pd.Timestamp, end_date: pd.Timestamp) -> None:
     st.subheader("System-level demand forecast")
-    st.caption(
-        "Past 7 days of disaggregated bus load (summed) + placeholder 6-hour "
-        "p10/p50/p90 ribbon. Replace with Graph-WaveNet outputs once "
-        "`models/gwnet_v1.pt` is wired in."
-    )
 
     # Build a feature window comfortably wider than the chart so cache hits
-    # survive date-picker nudges.
+    # survive date-picker nudges, and so the model has its full ``t_in``
+    # context even when the sidebar window is narrow.
     history_start = (end_date - pd.Timedelta(days=14)).strftime("%Y-%m-%d")
     history_end = end_date.strftime("%Y-%m-%d")
     try:
-        times, system_kw = _cached_feature_bundle_summary(history_start, history_end)
+        bundle = _cached_feature_bundle(history_start, history_end)
     except Exception as exc:
         st.error(f"Feature pipeline failed: {exc}")
         return
 
+    times = bundle.times
+    system_kw = np.asarray(bundle.y_kw).sum(axis=1)
+
     mask = (times >= start_date.tz_localize("UTC")) & (times <= end_date.tz_localize("UTC"))
     hist_times = times[mask]
-    hist_kw = np.asarray(system_kw)[mask.to_numpy() if hasattr(mask, "to_numpy") else mask]
+    hist_kw = system_kw[mask.to_numpy() if hasattr(mask, "to_numpy") else mask]
 
     if len(hist_times) == 0:
         st.info("Selected window falls outside the feature bundle range.")
         return
 
-    # Placeholder 6-hour forecast: repeat the trailing daily profile as p50.
+    # ------------------------------------------------------------------
+    # Model-driven forecast with graceful fallback.
+    # ------------------------------------------------------------------
+    predictor = get_cached_predictor()
+    forecast = None
+    if predictor is not None:
+        forecast = run_forecast(predictor, bundle)
+
+    if forecast is not None:
+        st.caption(
+            "Past observed demand + Graph-WaveNet p10/p50/p90 ribbon over the "
+            f"next {predictor.config.t_out} h. Ribbon is shown per bus below."
+        )
+
+        # Per-bus selector: default to the top-load bus so the ribbon is
+        # visible (zero-load buses would collapse to a flat-zero ribbon).
+        bus_totals = bundle.y_kw.sum(axis=0)
+        default_idx = int(np.argmax(bus_totals)) if bus_totals.size else 0
+        bus_options = list(forecast.bus_names)
+        selected_bus = st.selectbox(
+            "Bus",
+            options=bus_options,
+            index=min(default_idx, len(bus_options) - 1) if bus_options else 0,
+            help="Select a bus to inspect its per-bus forecast ribbon. "
+            "System-level ribbon is shown alongside.",
+        )
+
+        # System-level ribbon = sum of per-bus quantile forecasts.
+        sys_bands = aggregate_system_forecast(forecast)
+        sys_fig = build_forecast_figure(
+            hist_times=hist_times,
+            hist_values=hist_kw,
+            future_times=forecast.timestamps,
+            p10=sys_bands["p10"],
+            p50=sys_bands["p50"],
+            p90=sys_bands["p90"],
+            y_label="system demand (kW)",
+            hist_label="observed system demand",
+            p50_label="p50 (GWNet)",
+        )
+        st.plotly_chart(sys_fig, use_container_width=True)
+
+        # Per-bus ribbon.
+        bus_bands = select_bus_forecast(forecast, selected_bus)
+        bus_hist = np.asarray(bundle.y_kw[:, bus_options.index(selected_bus)])
+        bus_hist_window = bus_hist[mask.to_numpy() if hasattr(mask, "to_numpy") else mask]
+        bus_fig = build_forecast_figure(
+            hist_times=hist_times,
+            hist_values=bus_hist_window,
+            future_times=forecast.timestamps,
+            p10=bus_bands["p10"],
+            p50=bus_bands["p50"],
+            p90=bus_bands["p90"],
+            y_label=f"bus {selected_bus} demand (kW)",
+            hist_label=f"observed — bus {selected_bus}",
+            p50_label="p50 (GWNet)",
+        )
+        st.plotly_chart(bus_fig, use_container_width=True)
+
+        st.caption(
+            f"History window: {hist_times[0]} → {hist_times[-1]} "
+            f"(n = {len(hist_times)} hours). "
+            f"Forecast horizon: {predictor.config.t_out} h · "
+            f"model input window: {predictor.config.t_in} h · "
+            f"y_scaler: mean={predictor.y_scaler[0]:,.0f} kW, "
+            f"std={predictor.y_scaler[1]:,.0f} kW."
+        )
+        return
+
+    # ------------------------------------------------------------------
+    # Placeholder path — never crash the dashboard when the checkpoint
+    # is missing / fails to load.
+    # ------------------------------------------------------------------
+    st.caption(
+        "Past 7 days of disaggregated bus load (summed) + placeholder 6-hour "
+        "p10/p50/p90 ribbon. Drop a trained checkpoint at "
+        "`data/models/gwnet_v0.pt` to activate the Graph-WaveNet forecast."
+    )
     horizon = 6
     last_ts = hist_times[-1]
     future_times = pd.date_range(
@@ -231,55 +328,17 @@ def _render_forecast_tab(start_date: pd.Timestamp, end_date: pd.Timestamp) -> No
     p10 = p50 * 0.9
     p90 = p50 * 1.1
 
-    import plotly.graph_objects as go
-
-    fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=hist_times,
-            y=hist_kw,
-            mode="lines",
-            name="system demand (kW)",
-            line=dict(color="#2c3e50", width=2),
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=future_times,
-            y=p90,
-            mode="lines",
-            name="p90",
-            line=dict(color="rgba(41,128,185,0.4)", width=0),
-            showlegend=False,
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=future_times,
-            y=p10,
-            mode="lines",
-            name="p10",
-            fill="tonexty",
-            fillcolor="rgba(41,128,185,0.2)",
-            line=dict(color="rgba(41,128,185,0.4)", width=0),
-            showlegend=False,
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=future_times,
-            y=p50,
-            mode="lines",
-            name="p50 (placeholder)",
-            line=dict(color="#2980b9", width=2, dash="dash"),
-        )
-    )
-    fig.update_layout(
-        height=420,
-        xaxis_title="time (UTC)",
-        yaxis_title="kW",
-        margin=dict(l=10, r=10, t=30, b=10),
-        legend=dict(orientation="h", y=1.05),
+    fig = build_forecast_figure(
+        hist_times=hist_times,
+        hist_values=hist_kw,
+        future_times=future_times,
+        p10=p10,
+        p50=p50,
+        p90=p90,
+        y_label="kW",
+        hist_label="system demand (kW)",
+        p50_label="p50",
+        placeholder=True,
     )
     st.plotly_chart(fig, use_container_width=True)
 
