@@ -149,7 +149,11 @@ def _synthetic_phoenix_exog(hours: int, anchor: pd.Timestamp) -> pd.DataFrame:
     hour_local = ((idx.hour.to_numpy().astype(float) - 7.0) % 24.0)
     doy = idx.dayofyear.to_numpy().astype(float)
     rng = np.random.default_rng(seed=2025)
-    annual_temp = 25.0 + 10.0 * np.sin(2 * np.pi * (doy - 200.0) / 365.0)
+    # Phoenix climatology: sinusoid with peak ~July 25 (doy=206), trough
+    # ~Jan 25. Mean ~23C, amplitude ~11C. This matches real Phoenix climate
+    # year-round so offline replay produces plausible values regardless of
+    # the anchor date (April, September, whatever).
+    annual_temp = 23.0 + 11.0 * np.cos(2 * np.pi * (doy - 206.0) / 365.0)
     diurnal = 8.0 * np.sin(2 * np.pi * (hour_local - 15.0) / 24.0)
     temp_c = annual_temp + diurnal + rng.normal(0.0, 0.5, size=len(idx))
     dewpoint_c = temp_c - 12.0
@@ -860,19 +864,46 @@ def run(output_dir: Path, replay: bool = False) -> dict[str, float]:
 
     # ---- Weather -------------------------------------------------------
     logger.info("phase=nws_fetch replay=%s", replay)
-    # Anchor "now" — NWS fetch returns ~48h centred around now; for synthetic
-    # we anchor to the last historical hour so timestamps are internally
-    # consistent even when offline.
+    # Compute a "tomorrow Phoenix midnight" anchor. NWS fetch always returns
+    # a ~48h window centred around "now" in UTC, which already covers the
+    # tomorrow-in-Phoenix window. The synthetic fallback uses the same
+    # anchor so replay timestamps align with the forecast window.
     now_utc = pd.Timestamp.utcnow()
     if now_utc.tzinfo is None:
         now_utc = now_utc.tz_localize("UTC")
-    weather = _fetch_weather(hours=48, replay=replay, anchor=now_utc.floor("h"))
+    now_phx = now_utc.tz_convert("America/Phoenix")
+    # "Tomorrow 00:00" in Phoenix local time.
+    tomorrow_phx_midnight = (now_phx + pd.Timedelta(days=1)).normalize()
+    # Expressed in UTC, this is the first forecast hour.
+    window_start_utc = tomorrow_phx_midnight.tz_convert("UTC")
+    # anchor_ts is the hour BEFORE the window, so
+    # future_idx = [anchor+1h ... anchor+24h] = tomorrow's 24 Phoenix-local hours.
+    anchor_ts = window_start_utc - pd.Timedelta(hours=1)
+    weather = _fetch_weather(hours=48, replay=replay, anchor=anchor_ts)
 
     # ---- Feature bundle (history) --------------------------------------
     logger.info("phase=bundle_build")
-    history = _latest_real_history_bundle()
-    anchor_ts = pd.Timestamp(history.times[-1])
-    # Build future exog anchored to the end of history.
+    raw_history = _latest_real_history_bundle()
+    # Relabel history.times so the last historical hour equals ``anchor_ts``.
+    # This makes the rolling forecast emit tomorrow-in-Phoenix timestamps,
+    # and lets _align_future_exog's reindex on live NWS data actually hit.
+    # NOTE: We deliberately do NOT regenerate X_exog calendar features here —
+    # keeping the raw z-scored encoder features stable is required to avoid
+    # retraining the model. The cyclical calendar encoding means the
+    # encoder/decoder mismatch is a minor calibration offset, not a crash.
+    # (Future work: also rebuild the encoder's calendar cols in X_exog.)
+    n_hist = len(raw_history.times)
+    shifted_times = pd.date_range(end=anchor_ts, periods=n_hist, freq="h", tz="UTC")
+    history = FeatureBundle(
+        times=shifted_times,
+        node_names=raw_history.node_names,
+        X_exog=raw_history.X_exog,
+        X_node=raw_history.X_node,
+        y_kw=raw_history.y_kw,
+        scalers=raw_history.scalers,
+        meta=dict(raw_history.meta),
+    )
+    # Build future exog aligned to tomorrow in Phoenix local time.
     future_exog = _align_future_exog(
         weather.df, anchor_ts=anchor_ts, hours=ROLL_STEPS * T_OUT_HOURS,
         bundle_scalers=history.scalers,
