@@ -413,6 +413,8 @@ export default function TacticalMap() {
               iconAnchor: [0, 0],
             }),
           }).addTo(layer);
+          // Zoom to the midpoint of the highlighted line
+          map.flyTo([midLat, midLng], 16, { animate: true, duration: 0.5 });
         }
       }
     }

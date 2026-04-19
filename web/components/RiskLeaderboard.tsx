@@ -17,8 +17,16 @@ const TIER_TEXT: Record<string, string> = {
 };
 
 export default function RiskLeaderboard() {
-  const { current, compareWith, baseline, heat, ev } = useScenario();
+  const { current, compareWith, baseline, heat, ev, focus, setFocus } = useScenario();
   const rows = current.risk_leaderboard.slice(0, 10);
+
+  const isFocused = (bus: string | undefined) =>
+    !!bus && focus?.bus === bus;
+
+  const onPick = (bus: string | undefined) => {
+    if (!bus) return;
+    isFocused(bus) ? setFocus(null) : setFocus({ bus, source: "RISK_LB" });
+  };
 
   const compareScenario: TomorrowForecast | null =
     compareWith === null
@@ -88,21 +96,44 @@ export default function RiskLeaderboard() {
                 }
               }
 
+              const sel = isFocused(r.bus);
               return (
                 <tr
                   key={r.id}
-                  className={`border-b border-outline-variant/30 ${
-                    tier === "error"
-                      ? "bg-error/10 border-l-2 border-l-error"
-                      : tier === "secondary"
-                        ? "border-l-2 border-l-secondary/50"
-                        : "border-l-2 border-l-transparent"
+                  onClick={() => onPick(r.bus)}
+                  title={
+                    r.bus
+                      ? sel
+                        ? "Click to clear focus"
+                        : `Highlight bus ${r.bus} on map`
+                      : undefined
+                  }
+                  className={`border-b border-outline-variant/30 cursor-pointer transition-colors ${
+                    sel
+                      ? "bg-primary/15 border-l-2 border-l-primary"
+                      : tier === "error"
+                        ? "bg-error/10 border-l-2 border-l-error hover:bg-error/20"
+                        : tier === "secondary"
+                          ? "border-l-2 border-l-secondary/50 hover:bg-surface-container-low"
+                          : "border-l-2 border-l-transparent hover:bg-surface-container-low"
                   }`}
                 >
                   <td className="py-2 pl-2 text-on-surface-variant">
                     {String(i + 1).padStart(2, "0")}
                   </td>
-                  <td className="py-2 pr-2 text-on-surface">{r.id}</td>
+                  <td className="py-2 pr-2 text-on-surface">
+                    <span className="flex items-center gap-1.5">
+                      {sel && (
+                        <span
+                          className="material-symbols-outlined text-primary text-[12px] leading-none"
+                          aria-hidden
+                        >
+                          my_location
+                        </span>
+                      )}
+                      {r.id}
+                    </span>
+                  </td>
                   <td className="py-2 pr-2">
                     <div className="flex items-center gap-2">
                       <div className="h-1 bg-surface-container-highest w-14 relative">
