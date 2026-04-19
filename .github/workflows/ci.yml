@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install minimal test dependencies
+        # Keep CI fast & avoid torch/torch-geometric wheel-resolution time on smoke tests.
+        # Full requirements.txt is validated in the Colab training job and the HF Space build.
+        run: pip install pytest pyyaml
+
+      - name: Run tests
+        run: pytest -q

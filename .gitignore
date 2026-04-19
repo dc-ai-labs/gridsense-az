@@ -1,0 +1,43 @@
+# --- Data (never commit raw pulls) ---------------------------------------
+data/raw/**
+!data/raw/.gitkeep
+
+# --- Python env + caches -------------------------------------------------
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- Secrets -------------------------------------------------------------
+.env
+.env.local
+
+# --- OS / editor ---------------------------------------------------------
+.DS_Store
+*.log
+*.tmp
+/tmp_*
+
+# --- Build artifacts -----------------------------------------------------
+build/
+dist/
+*.egg-info/
+
+# --- Model weights (ship via HF Hub / LFS, not git) ----------------------
+models/*.pt
+models/*.ckpt
+models/*.bin
+!models/.gitkeep
+
+# --- Generated figures / reports artifacts -------------------------------
+reports/figures/*
+!reports/.gitkeep
+
+# --- Node (if Vercel landing added later) --------------------------------
+node_modules/
+.next/

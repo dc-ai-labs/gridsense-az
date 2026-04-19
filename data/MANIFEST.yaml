@@ -1,0 +1,25 @@
+sources:
+  - name: noaa_isd_kphx
+    url: https://www.ncei.noaa.gov/data/global-hourly/access/
+    licence: public-domain
+    rows_expected: ~60000  # 7 years × ~8760 hourly obs
+  - name: nsrdb_phoenix
+    url: https://developer.nrel.gov/docs/solar/nsrdb/
+    licence: CC-BY-NC
+    rows_expected: ~35000  # 4 years × 8760
+  - name: eia930_azps
+    url: https://www.eia.gov/opendata/
+    licence: CC0
+    rows_expected: ~60000  # 7 years × 8760
+  - name: resstock_maricopa
+    url: s3://oedi-data-lake/nrel-pds-building-stock/.../state=AZ/county=G04013
+    licence: public-domain
+  - name: evi_pro_lite_phx
+    url: https://developer.nrel.gov/docs/transportation/evi-pro-lite-v1/
+    licence: public-domain
+  - name: ieee_123
+    url: https://github.com/tshort/OpenDSS
+    licence: public-domain
+  - name: hf_energybench
+    url: https://huggingface.co/datasets/ai-iot/EnergyBench
+    licence: (per dataset card)

@@ -1,0 +1,38 @@
+name: Deploy to HuggingFace Space
+
+# STUB — wired up at T+9. Kept commented so main-merges don't fail.
+# When ready, flip `if: false` to `if: github.ref == 'refs/heads/main'`
+# and populate the HF_TOKEN + HF_USERNAME secrets in repo settings.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync-to-hf:
+    if: false  # disabled until T+9 deploy wiring
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      # - name: Push hf_space/ to HuggingFace Space
+      #   env:
+      #     HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      #     HF_USERNAME: ${{ secrets.HF_USERNAME }}
+      #   run: |
+      #     pip install huggingface_hub
+      #     python - <<'PY'
+      #     import os
+      #     from huggingface_hub import HfApi
+      #     api = HfApi(token=os.environ["HF_TOKEN"])
+      #     api.upload_folder(
+      #         folder_path="hf_space",
+      #         repo_id=f"{os.environ['HF_USERNAME']}/gridsense-az",
+      #         repo_type="space",
+      #     )
+      #     PY

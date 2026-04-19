@@ -1,0 +1,502 @@
+# AI for Energy — APS Challenge: Zero-Ambiguity Build Plan
+
+> **Owner:** Divyansh Chandarana (ASU) · **Manager:** JARVIS · **Sponsor:** Arizona Public Service (APS)
+> **Brief file:** `./APS_AI_for_Energy_Technical_Problem_Statement.docx`
+> **Plan drafted:** 2026-04-18 · **Target deploy:** Vercel (dashboard) + HuggingFace Hub (weights) + GitHub (repo)
+> **Project root (code):** `/home/divyansh/Downloads/hackathon/energy/` (this folder) — monorepo
+> **Product codename:** `GridSense-AZ`
+
+---
+
+## 0. TL;DR for the judges (one paragraph)
+
+> **GridSense-AZ is a spatio-temporal AI system for Arizona Public Service's distribution grid.** It forecasts 15-minute-resolution load on every feeder of an IEEE-123-bus distribution network parameterised with real Phoenix weather (NOAA KPHX) and real AZPS demand patterns (EIA-930), stress-tests the forecast under user-controllable extreme-heat and EV-evening-peak scenarios, and converts predictions into operator-ready interventions via an interactive map-based decision layer. Under the hood: a **MTGNN** (graph) + **Temporal Fusion Transformer** (quantile) ensemble, a **physics-consistency check** via OpenDSS power flow, and an interactive **Streamlit + pydeck** dashboard a planner could use the day we ship it.
+
+---
+
+## 1. Sponsor-intent decoder — what APS *actually* cares about
+
+Decoded from the brief + public APS/SRP filings (Oct 2024 IRP, 2025 ISP) + April 2026 $7M heat-shutoff settlement context:
+
+| The brief says… | What the sponsor *means*… | How we respond |
+|---|---|---|
+| "Realistic APS-like distribution network" | Don't hand us a synthetic toy with zero Arizona flavour. | Base topology on IEEE 34-bus (actually an AZ 24.9 kV feeder from 1991) and/or IEEE 123-bus; overlay Phoenix weather + AZPS demand curves; quote real APS peak (8,631 MW, Aug 7 2025) in the dashboard. |
+| "Spatio-temporal AI model with learned parameters" | LLM wrappers are out. Show us weights. | MTGNN + TFT trained on Colab Pro L4; weights committed via git-lfs or hosted on HF Hub. |
+| "At least one stress scenario using extreme heat and/or EV evening peak growth" | The scenario engine is the killer feature. | Build a **what-if simulator** with sliders: ΔT (+0 → +15 °F), EV penetration (0 → 50%), PV penetration (0 → 60%). Re-runs inference + OpenDSS power flow live. |
+| "Decision-ready outputs for planners or operators" | If an engineer can't act on it, it doesn't count. | Map-based feeder-level risk score (prob. peak > rating in next 24 h) + top-3 variable-importance drivers + ranked intervention list ("dispatch battery at bus 812", "switch load to feeder 22 (3.1 MW spare)"). |
+| "Scoring implication: … Arizona-oriented, stronger heat and EV treatment" | Hackathon judges will reward AZ-specific storytelling. | Include Phoenix 2023 heat wave (31 consecutive days ≥110 °F) as a validation scenario. Include the 500+ MW/hr duck-curve evening ramp as a case study. Cite APS EV Overnight TOU and Smart EV Rewards programs as deployment targets. |
+| "Clear error metrics" + "good performance during stress periods" | Don't report a single MAPE. | Report MAE, RMSE, MAPE overall and **separately for heat-wave days vs normal days** and for the 4-7 pm evening ramp. Include **quantile reliability diagram** (90% intervals actually cover 90%?). |
+| "GitHub repo + 5-slide deck + 60-90 s reel" | Three-artifact submission. | Schedule 2h at the end for deck+reel; do not leave to last minute. |
+
+**What the brief does not say but sponsor clearly wants (decoded from APS 2023 IRP):** alignment with their stated 2.4% annual peak growth and the 3,000 MW solar + 2,800 MW battery additions by 2027. We frame our decision layer as "capacity-deferral screening" — a lens that identifies *which* feeders most need the 2027 upgrades, and thus helps prioritise APS capex. That pitch lands.
+
+---
+
+## 2. Product scope — minimum viable vs. stretch
+
+### MVP (must ship, ~18 h of work)
+- IEEE 123-bus distribution feeder model in OpenDSS, parameterised with Phoenix weather-driven load shapes from ResStock AZ.
+- MTGNN trained on the 123 buses × hourly demand (synthetic, weather-conditioned) for 2 years of data.
+- TFT per-feeder quantile forecast (p10/p50/p90), horizon = 24 h at 15-min resolution.
+- Streamlit dashboard with: (a) feeder map coloured by 24-h peak-load risk, (b) per-feeder forecast ribbon + variable importance, (c) one stress scenario toggle (+10 °F heat wave).
+- OpenDSS physics-consistency check on forecast outputs.
+- Metrics report (MAE/RMSE/MAPE + reliability).
+- GitHub repo, 5-slide deck, 75-s reel.
+
+### Stretch (if time allows)
+- DCRNN baseline to benchmark MTGNN.
+- Zero-shot transferability test: train on 80 buses, evaluate on 43 held-out buses.
+- GNNExplainer on flagged feeders ("why is feeder 17 at risk?" → neighbour influence map).
+- "What-if" sliders in dashboard (ΔT, EV%, PV%).
+- Conformal prediction wrapper (MAPIE) for distribution-free coverage guarantees.
+- Foundation-model zero-shot baseline (TimesFM-2 or Chronos) to show GNN beats it.
+- Export "feeder upgrade ranking CSV" for APS planners.
+
+### Explicitly out of scope
+- True AMI-level (customer) forecasts — only feeder-level.
+- Multi-feeder interconnected dispatch optimisation (just screening + recommendation).
+- Real SCADA ingestion (we use public synthetic inputs).
+
+---
+
+## 3. Technical architecture
+
+### 3.1 Data flow (end-to-end)
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ LAYER 1 — PUBLIC DATA (pulled once, cached locally)                  │
+│   • NOAA ISD KPHX hourly temp 2019-2025   (no auth)                  │
+│   • NREL NSRDB irradiance Phoenix (lat 33.45, lon -112.07) 2019-23   │
+│   • EIA-930 hourly demand for AZPS balancing authority                │
+│   • NREL ResStock AZ residential load profiles (15-min)              │
+│   • NREL EVI-Pro Lite fleet load profiles (Phoenix climate zone)     │
+│   • IEEE 123-bus feeder (.dss files from github.com/tshort/OpenDSS)   │
+│   • HuggingFace EnergyBench (residential AMI substitute for Pecan St) │
+└─────────────────┬────────────────────────────────────────────────────┘
+                  │
+                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ LAYER 2 — FEATURE PIPELINE (ETL, CPU)                                │
+│   Python/pandas. Outputs parquet at data/features/:                   │
+│   • feeder_load_timeseries.parquet   (bus × time × kW/kVAR)           │
+│   • weather_features.parquet         (T, T_lag1..24, GHI, humidity)   │
+│   • calendar_features.parquet        (DoW, hour, holidays, heat-wave  │
+│                                       flag: ≥3 consecutive days ≥110°)│
+│   • topology.pt                      (PyG graph w/ line impedances)   │
+└─────────────────┬────────────────────────────────────────────────────┘
+                  │
+                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ LAYER 3 — MODELS (Colab Pro L4, driven via ml-trainer agent)         │
+│   ┌─────────────────────────────────────────────────────┐             │
+│   │  A. MTGNN  (hero graph model)                       │             │
+│   │     — learns adjacency from load correlation        │             │
+│   │     — outputs per-feeder point forecast, 24h @15min │             │
+│   │     — weights: models/mtgnn_v1.pt                   │             │
+│   │                                                     │             │
+│   │  B. TFT    (quantile, pytorch-forecasting)          │             │
+│   │     — per-feeder, known/unknown covariates          │             │
+│   │     — outputs p10/p50/p90                           │             │
+│   │     — weights: models/tft_v1.ckpt                   │             │
+│   │                                                     │             │
+│   │  C. DCRNN baseline (simple GNN for comparison)      │             │
+│   │     — stretch goal                                  │             │
+│   └─────────────────────────────────────────────────────┘             │
+└─────────────────┬────────────────────────────────────────────────────┘
+                  │   per-feeder p10/p50/p90 kW forecast
+                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ LAYER 4 — PHYSICS CHECK (OpenDSS, local CPU, ~sec/scenario)           │
+│   For each horizon step t:                                            │
+│     • write predicted kW/kVAR into OpenDSS Load objects               │
+│     • Solution.Solve() → per-bus voltage, per-line loading            │
+│     • flag voltage violations (ANSI C84.1 ±5%)                        │
+│     • flag thermal violations (loading > 100% of line rating)         │
+│   Outputs: risk_flags.parquet                                          │
+└─────────────────┬────────────────────────────────────────────────────┘
+                  │
+                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ LAYER 5 — DECISION ENGINE (Python rules + explainers)                 │
+│   For each flagged feeder/time:                                       │
+│     • extract TFT variable-importance → top 3 drivers                 │
+│     • run GNNExplainer on MTGNN (stretch) → neighbour influence       │
+│     • lookup rule book: load-transfer options (feeders ≤2 hops,       │
+│       spare capacity from OpenDSS baseline), DR levers, battery       │
+│       dispatch candidates                                             │
+│     • emit ranked intervention list                                   │
+└─────────────────┬────────────────────────────────────────────────────┘
+                  │
+                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ LAYER 6 — DASHBOARD (Streamlit + pydeck, port 8501)                   │
+│   • Map: pydeck ColumnLayer on feeder centroids, coloured by risk     │
+│   • Click feeder → p10/p50/p90 ribbon, drivers, interventions         │
+│   • Scenario panel: sliders for ΔT, EV%, PV% → live re-inference      │
+│   • Metrics tab: reliability diagram, heat-wave vs normal split       │
+│   • Export tab: CSV of feeder-upgrade ranking                         │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 3.2 Why MTGNN + TFT (vs. alternatives)
+
+| Model | Pros | Cons | Decision |
+|---|---|---|---|
+| **MTGNN** (Graph WaveNet successor) | Learns adjacency end-to-end (critical — real feeder influence ≠ hand-drawn graph); strong on multi-variate time series; trains <1h on L4. | Research-quality code; no quantile head native. | **Hero** — handles the "spatio" well. |
+| **Temporal Fusion Transformer** | Native quantile forecasts (p10/p50/p90); interpretable variable importance; handles static + dynamic + future-known covariates. | Per-series (not graph-native); heavier than LSTM. | **Ensemble partner** — handles the "temporal" + uncertainty. |
+| DCRNN | Canonical baseline; simple to explain ("diffusion on the feeder graph"). | Static adjacency; weaker than MTGNN. | **Stretch baseline** (benchmark). |
+| PatchTST | SOTA raw accuracy on many benchmarks. | No covariate story, no quantile head out-of-box, no graph. | **Skip.** |
+| Foundation models (TimesFM-2, Chronos, Moirai) | Zero-shot baseline is a great demo plot ("we beat a foundation model"). | No graph, univariate-ish. | **Stretch** — zero-shot only. |
+| PINN (full) | Physics-embedded. | Slow training, finicky. | **No** — use OpenDSS for physics check instead. |
+
+**Final ensemble:** MTGNN → point forecast baseline; TFT → per-feeder quantile forecast + importance. Dashboard shows TFT p10/p50/p90 ribbon; physics check runs on MTGNN point output; flagged feeders get TFT variable importance in the sidebar.
+
+### 3.3 Stack — exact versions
+
+| Purpose | Package | Version | Why |
+|---|---|---|---|
+| DL framework | `torch` | 2.4+ | Stable, Colab-native. |
+| Graph NN | `torch-geometric` | 2.6+ | MTGNN impl available. |
+| Temporal GNN | `torch-geometric-temporal` | 0.55+ | DCRNN, AGCRN ready. |
+| Forecasting | `pytorch-forecasting` | 1.4+ | TFT with quantile head. |
+| Trainer | `pytorch-lightning` | 2.4+ | Clean checkpoint callbacks. |
+| Power flow | `OpenDSSDirect.py` | 0.9.4+ | Prebuilt wheels for Ubuntu 24.04, no EPRI C++ build. |
+| Dashboard | `streamlit` + `pydeck` + `plotly` | latest | 4-6 h build, judge-impressive. |
+| Data wrangling | `pandas`, `polars`, `duckdb` | latest | DuckDB for S3 parquet filtering (ResStock). |
+| Geospatial | `geopandas`, `shapely` | latest | feeder centroid map. |
+| Cloud run | Colab Pro (L4) via `colab-mcp` | — | Training only. |
+| Conformal | `mapie` | latest | Stretch: coverage guarantees. |
+| Explainer | `torch-geometric` GNNExplainer | built-in | Stretch. |
+| Weights hosting | git-lfs OR HuggingFace Hub | — | Pick by size (<200 MB → lfs). |
+
+---
+
+## 4. Dataset inventory — exact access, auth, licensing
+
+All commands are copy-pasteable. Run from repo root in a Python venv with `python -m venv .venv && source .venv/bin/activate`.
+
+### 4.1 NOAA ISD — hourly Phoenix temperature (no auth)
+```bash
+mkdir -p data/raw/noaa
+for Y in 2019 2020 2021 2022 2023 2024 2025; do
+  curl -sSf -o data/raw/noaa/KPHX_$Y.csv \
+    https://www.ncei.noaa.gov/data/global-hourly/access/$Y/72278023183.csv
+done
+```
+- Station: KPHX (Phoenix Sky Harbor), USAF 722780, WBAN 23183.
+- Format: ISD CSV (needs parsing — `TMP` field, tenths of °C).
+- Licence: public domain (US federal gov).
+
+### 4.2 NREL NSRDB — Phoenix irradiance (API key required)
+- Signup: `https://developer.nrel.gov/signup/` → instant email with key.
+- **Store key** in `.env` as `NREL_API_KEY`.
+```bash
+curl -sSf "https://developer.nrel.gov/api/nsrdb/v2/solar/psm3-download.csv?\
+wkt=POINT(-112.07%2033.45)&names=2020,2021,2022,2023&\
+interval=60&attributes=ghi,dhi,dni,air_temperature,relative_humidity&\
+api_key=${NREL_API_KEY}&email=dchanda1@asu.edu" \
+  -o data/raw/nsrdb/phoenix_2020_2023.csv
+```
+- Licence: permissive for research.
+
+### 4.3 EIA-930 — AZPS balancing-authority demand (API key required)
+- Signup: `https://www.eia.gov/opendata/register.php` → instant email.
+- **Store key** in `.env` as `EIA_API_KEY`.
+```python
+# scripts/pull_eia930.py
+import os, requests, pandas as pd
+params = dict(
+    api_key=os.environ['EIA_API_KEY'],
+    frequency='hourly',
+    data='value',
+    **{'facets[respondent][]': 'AZPS', 'facets[type][]': 'D'},
+    start='2019-01-01T00',
+    end='2025-12-31T23',
+    length=5000,
+)
+url = 'https://api.eia.gov/v2/electricity/rto/region-data/data/'
+rows=[]; offset=0
+while True:
+    r = requests.get(url, params={**params, 'offset': offset}).json()
+    batch = r['response']['data']
+    if not batch: break
+    rows.extend(batch); offset += 5000
+pd.DataFrame(rows).to_parquet('data/raw/eia930/azps_demand.parquet')
+```
+
+### 4.4 NREL ResStock — Arizona Maricopa County residential profiles
+```bash
+# DuckDB handles S3 parquet directly, no download needed
+python -c "
+import duckdb
+duckdb.sql('''
+  INSTALL httpfs; LOAD httpfs;
+  COPY (
+    SELECT * FROM read_parquet(
+      's3://oedi-data-lake/nrel-pds-building-stock/end-use-load-profiles-for-us-building-stock/2024/resstock_amy2018_release_2/timeseries_individual_buildings/by_county/state=AZ/county=G04013/*.parquet'
+    )
+    LIMIT 500
+  ) TO 'data/raw/resstock/maricopa_sample.parquet'
+''')
+"
+```
+- ResStock v2024 release 2; Maricopa County FIPS = 04013.
+
+### 4.5 NREL EVI-Pro Lite — EV charging fleet profiles
+```bash
+curl -sSf "https://developer.nrel.gov/api/evi-pro-lite/v1/daily-load-profile?\
+api_key=${NREL_API_KEY}&fleet_size=1000&climate_zone=very-hot-dry&\
+home_access_dist=REAL_ESTATE&home_power_dist=MOSTLY_L2&\
+work_power_dist=MOSTLY_L2&res_charging=night&work_charging=min_delay" \
+  -o data/raw/evi_pro/phoenix_1000ev_night.json
+# Loop fleet_size: 100, 500, 1000, 2000 and charging strategies (night vs afternoon)
+```
+
+### 4.6 IEEE 123-bus feeder (no auth)
+```bash
+git clone --depth 1 https://github.com/tshort/OpenDSS.git data/raw/opendss_repo
+cp -r data/raw/opendss_repo/Distrib/IEEETestCases/123Bus data/raw/ieee123
+# Canonical ZIP from IEEE PES also available:
+# https://cmte.ieee.org/pes-testfeeders/resources/
+```
+
+### 4.7 HuggingFace EnergyBench — Pecan Street substitute (free HF account)
+```python
+# scripts/pull_energybench.py
+from datasets import load_dataset
+ds = load_dataset('ai-iot/EnergyBench', split='train', streaming=True)
+# Filter / sample residential households for feature engineering
+```
+
+### 4.8 NREL SMART-DS Austin (hot-climate analog to Phoenix)
+```bash
+aws s3 sync --no-sign-request \
+  s3://oedi-data-lake/SMART-DS/v1.0/AUS/ \
+  data/raw/smartds_aus/
+```
+- **Optional** — only if we need a larger multi-feeder topology beyond IEEE 123.
+
+### 4.9 BLOCKED — Pecan Street Dataport
+- 3-business-day approval. **Substituted by EnergyBench + ResStock.**
+- Submit application anyway for post-hackathon use: `https://dataport.pecanstreet.org/`
+
+### 4.10 Data manifest file (commit this)
+```
+data/
+├── MANIFEST.yaml            ← lists every raw source, hash, row count, licence
+├── raw/                     ← .gitignored; pulled via scripts/pull_all.sh
+├── features/                ← parquet outputs (committed if <50 MB, else LFS)
+└── splits/                  ← train/val/test index files (committed)
+```
+
+---
+
+## 5. Agent roster — who does what
+
+| Agent | Purpose | Tools |
+|---|---|---|
+| **manager** (JARVIS) | Orchestration, task ledger, reviews, checkpoints, pitch decisions. | Read, Bash, Grep, Glob, WebFetch, WebSearch, Agent, colab-mcp, context7-mcp |
+| **sde** | Product code: data pipelines, feature ETL, OpenDSS wrapper, dashboard, tests, CI. | All code + Playwright MCP |
+| **ml-trainer** (NEW) | Compose + run Colab notebooks; train MTGNN, TFT, DCRNN; checkpoint to Drive; emit metrics reports. | Read/Write/Edit, Bash, colab-mcp, context7-mcp |
+| **reviewer** | Pre-commit code review; flags bugs, security, scope creep. | Read, Grep, Glob, Bash, context7-mcp |
+| **ui-verifier** | Drives Playwright against the Streamlit dashboard; clicks every control, screenshots, reports. | Playwright MCP |
+
+**Parallelization contract:** at any time, ≤4 sub-agents run concurrently. Typical parallel fan-out: `sde(data pipeline)` + `sde(OpenDSS wrapper)` + `ml-trainer(smoke train)` + `sde(dashboard scaffold)`.
+
+---
+
+## 6. Repo structure (monorepo at `./`)
+
+```
+energy/                          ← this folder = repo root
+├── APS_AI_for_Energy_Technical_Problem_Statement.docx
+├── PLAN.md                      ← this document
+├── TASKS.md                     ← live task ledger (created at kickoff)
+├── README.md                    ← written late, for judges
+├── pyproject.toml               ← uv-managed Python project
+├── .env.example                 ← NREL_API_KEY, EIA_API_KEY placeholders
+├── .gitignore                   ← data/raw/, .venv/, __pycache__, .ipynb_checkpoints
+├── .gitattributes               ← git-lfs rules for *.pt, *.ckpt
+├── scripts/
+│   ├── pull_all.sh              ← pulls every dataset from §4
+│   ├── pull_noaa.py
+│   ├── pull_nsrdb.py
+│   ├── pull_eia930.py
+│   ├── pull_resstock.py
+│   ├── pull_evi_pro.py
+│   └── pull_energybench.py
+├── data/
+│   ├── MANIFEST.yaml
+│   ├── raw/                     ← .gitignored
+│   ├── features/                ← committed small; LFS for big
+│   └── splits/                  ← committed
+├── src/gridsense/
+│   ├── __init__.py
+│   ├── topology.py              ← IEEE 123-bus loader → PyG Data object
+│   ├── features.py              ← weather × load × calendar join
+│   ├── models/
+│   │   ├── mtgnn.py
+│   │   ├── tft.py
+│   │   └── dcrnn.py
+│   ├── power_flow.py            ← OpenDSSDirect.py wrapper
+│   ├── decision.py              ← rule engine + importance extractor
+│   └── eval.py                  ← MAE/RMSE/MAPE + reliability + heat-split
+├── notebooks/
+│   ├── 01_eda.ipynb
+│   ├── 02_mtgnn_train.ipynb     ← Colab-ready, self-contained
+│   ├── 03_tft_train.ipynb       ← Colab-ready
+│   └── 04_evaluation.ipynb
+├── app/
+│   ├── streamlit_app.py         ← entry point
+│   ├── components/
+│   │   ├── feeder_map.py
+│   │   ├── forecast_chart.py
+│   │   ├── scenario_panel.py
+│   │   └── metrics_panel.py
+│   └── assets/
+├── models/                      ← weights (lfs or pinned URLs)
+├── reports/                     ← training reports per §ml-trainer
+├── tests/
+│   ├── test_topology.py
+│   ├── test_features.py
+│   ├── test_power_flow.py
+│   ├── test_models_smoke.py
+│   └── test_dashboard.py        ← Playwright-driven
+├── deck/
+│   ├── slides.md                ← 5 slides as markdown
+│   └── figures/
+└── reel/
+    ├── script.md                ← voiceover timing
+    └── shots/                   ← screen recordings
+```
+
+---
+
+## 7. Hour-by-hour execution schedule
+
+**Assumption:** ~24 hours wall clock, one day + overnight. Adjust if the window is different.
+
+| Hour | Parallel tracks | Deliverable |
+|---|---|---|
+| **T+0 – T+1** | sde: scaffold repo + `.env` + git + GitHub remote + Vercel link (skip if no deploy). manager: draft TASKS.md, commit PLAN.md. | Green repo on GitHub. |
+| **T+1 – T+3** | sde(A): dataset pullers (NOAA, NSRDB, EIA, EVI-Pro). sde(B): OpenDSS loader for IEEE 123. sde(C): feature pipeline skeleton. ml-trainer: compose smoke-train notebook (1% data). | `data/features/*.parquet` populated; IEEE 123 loads power-flow cleanly; TFT smoke-train runs on Colab. |
+| **T+3 – T+6** | ml-trainer: full MTGNN training run on Colab L4 (24h/15-min horizon). ml-trainer (parallel): TFT training on same split. sde: dashboard scaffold (empty tabs + navigation). | `models/mtgnn_v1.pt`, `models/tft_v1.ckpt`, `reports/mtgnn_v1.md`, `reports/tft_v1.md`. |
+| **T+6 – T+8** | sde: power-flow wrapper + decision engine + metrics module. ml-trainer: iterate if metrics are ugly. reviewer: sweep. | Physics check running; flagged feeders list generated. |
+| **T+8 – T+12** | sde: full dashboard implementation — map + chart + scenario + metrics. ui-verifier: drives dashboard end-to-end. | `streamlit run app/streamlit_app.py` → full working UI on localhost:8501. |
+| **T+12 – T+16** | **BUFFER** / **SLEEP** for owner. Manager runs reviewer + ui-verifier in background; queues polish items. | Polished tests, clean CI. |
+| **T+16 – T+20** | sde: stretch goals — what-if sliders, GNNExplainer, conformal wrapper. ml-trainer: DCRNN baseline + foundation-model zero-shot bakeoff. | Stretch features behind feature flags; benchmark plot. |
+| **T+20 – T+22** | sde: polish — README, data manifest, model card. ui-verifier: final screenshot pass. | README publication-ready. |
+| **T+22 – T+24** | sde: 5-slide deck + 75-s reel. manager: submission package. | `deck/slides.md` → PDF; `reel/final.mp4`; GitHub tagged `v1.0-submission`. |
+
+---
+
+## 8. Risk register
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| Colab session expires mid-training | HIGH | Medium | Checkpoint every 5 min to Drive; ml-trainer resumes from latest ckpt. Prefer Colab Pro+ for 24h background exec if account has it. |
+| ASU Google SSO expired in local Chrome Profile 2 | MED | Blocks Colab | Re-auth via DUO 2FA — ping owner. |
+| MTGNN NaN-loss / diverges | MED | High | Gradient clipping at 5.0; reduce LR to 1e-4; fall back to DCRNN. |
+| OpenDSSDirect.py install fails on Ubuntu 24.04 | LOW | High | Fallback: dockerized OpenDSS (EPRI image) behind CLI. |
+| Dashboard render slow on re-inference | MED | Low | Cache forecasts for baseline; only re-run on slider commit, not drag. |
+| Pecan Street approval lands in time | LOW | — | Ignore; EnergyBench substitute stands. |
+| Judges question "why synthetic not real APS data?" | MED | Medium | Pre-answer slide: real APS AMI is confidential; our synthetic is calibrated to public AZPS macro-totals (EIA-930) + Phoenix climate (NOAA) + ResStock Maricopa. Bias estimate included. |
+| Git-LFS bandwidth cap | LOW | Medium | Host weights on HF Hub instead; commit download URL. |
+| 4-core / 8 GB RAM laptop can't run dashboard + OpenDSS | MED | Medium | Precompute scenario outputs to parquet; dashboard only reads; what-if sliders use cached lookup table with 5 ΔT × 5 EV% × 3 PV% = 75 precomputed scenarios. |
+
+---
+
+## 9. Judge scorecard — what we optimise for
+
+Inferred from "Scoring implication" paragraph in the brief:
+
+| Dimension | Weight (est.) | Our hook |
+|---|---|---|
+| Arizona-orientation | High | IEEE 34/123 (34 is literally AZ); Phoenix NOAA; AZPS EIA-930; Maricopa ResStock; cite 8,631 MW peak + 2023 heat wave + $7M settlement. |
+| Heat treatment depth | High | Heat-wave feature (≥3 consecutive days ≥110 °F); separate MAE on heat days; +10 °F and +15 °F stress scenarios. |
+| EV treatment depth | High | EVI-Pro Lite fleet profiles; EV% slider; evening-peak alignment with APS EV Overnight TOU. |
+| Decision-layer quality | Very High | Feeder-level risk score + top-3 drivers + ranked interventions + export CSV. |
+| Model novelty / rigour | Medium | MTGNN + TFT ensemble; quantile reliability; physics-consistency via OpenDSS; transferability test (stretch). |
+| Polished demo | Medium | Streamlit+pydeck map; 75-s reel; 5 slides. |
+
+---
+
+## 10. Definition of done
+
+**Ready to submit when all are ✓:**
+- [ ] `pytest -q` → 100% green on `tests/`.
+- [ ] `streamlit run app/streamlit_app.py` → loads in <5s, all tabs render, no console errors.
+- [ ] `reports/mtgnn_v1.md` exists with MAE, RMSE, MAPE (overall + heat-wave split), training time, GPU used.
+- [ ] `reports/tft_v1.md` exists with quantile reliability plot (90% interval coverage ≥85%).
+- [ ] OpenDSS physics check flags ≥1 voltage or thermal violation in +10°F scenario.
+- [ ] README.md documents setup in ≤10 commands, model card included.
+- [ ] `deck/slides.md` rendered to PDF (5 slides).
+- [ ] `reel/final.mp4` is 60–90 s with voice-over or captions.
+- [ ] GitHub repo tagged `v1.0-submission`, public, with LICENSE (MIT or Apache-2.0).
+- [ ] Pitch text for submission form drafted in `submission.md`.
+
+---
+
+## 11. Pitch deck — 5 slides (storyboard)
+
+| # | Title | Content |
+|---|---|---|
+| 1 | **The grid problem Arizona is already failing at** | 54 days ≥110 °F in Phoenix 2024 · $7M heat-shutoff settlement · 500+ MW/hr duck-curve ramp. *Photo: Phoenix skyline + thermal overlay.* |
+| 2 | **GridSense-AZ in one diagram** | Data-flow figure from §3.1; call out MTGNN + TFT + OpenDSS + decision layer. |
+| 3 | **What it does that others don't** | Side-by-side: baseline vs +10°F scenario on feeder map; quantile reliability plot; top-3 drivers for feeder 17. |
+| 4 | **Numbers** | MAE, RMSE, MAPE, heat-day MAE, quantile coverage, inference latency. One chart: error during heat wave vs normal. |
+| 5 | **Why APS should care + what's next** | Screening for 2027 IRP capex; integration path with APS ADMS; next: real AMI fine-tune + DERMS orchestration. QR to GitHub. |
+
+---
+
+## 12. Reel — 75-second storyboard
+
+| 0-5s | Phoenix skyline + "It's 118°F. The grid is thinking." |
+| 5-20s | Dashboard map zoom; heatmap turns red on a cluster of feeders. |
+| 20-35s | Click feeder 17 → forecast ribbon + "top driver: temperature lag-24 (0.42)". |
+| 35-55s | Drag +10°F slider; map redraws; new violations appear; "interventions: dispatch battery bus 812, transfer 1.8 MW to feeder 22". |
+| 55-70s | Physics-check panel showing OpenDSS voltage heatmap. |
+| 70-75s | Logo + GitHub URL. |
+
+---
+
+## 13. Post-hackathon extensibility (for the "what's next" slide)
+
+- Real APS AMI partner integration — fine-tune on confidential substation-level AMI.
+- Integration with APS ADMS / SRP DERMS (both deployed Jan 2025).
+- DER dispatch optimisation (today = screening only).
+- Customer-level DR program enrollment targeting (tied to APS Smart EV Rewards).
+- SRP joint-operation model (SRP's 1,000 MW pumped hydro by 2035).
+
+---
+
+## 14. Open questions for Divyansh (confirm before T+0)
+
+1. **Hackathon window** — is it 24 h, a weekend, or a week? (Schedule §7 assumes 24 h.)
+2. **Submission format** — does the hackathon want a deployed URL, just a GitHub repo, or both? Any size caps on weights/models?
+3. **Deploy target** — Vercel (dashboard) + HuggingFace (weights)? Or is Streamlit Cloud acceptable for a faster deploy?
+4. **Team size** — is this solo, or are there human teammates who will own parts (deck, reel)?
+5. **Colab tier on ASU** — plain Pro (L4, 12h session) or Pro+ (24h background exec, A100 bursts)? Affects training plan.
+6. **Presentation live-demo?** — if yes, we need a reproducible "demo mode" with baked-in scenarios that can't fail on stage.
+
+---
+
+## 15. Kickoff checklist (first 30 min after green-light)
+
+```
+[ ] 1. Initialize git + GitHub repo (manager dispatches sde)
+[ ] 2. Copy PLAN.md + create TASKS.md from template
+[ ] 3. Write .env.example, register free keys:
+       - NREL  https://developer.nrel.gov/signup/
+       - EIA   https://www.eia.gov/opendata/register.php
+[ ] 4. Install uv env: `uv venv && uv pip sync requirements.txt`
+[ ] 5. Smoke-run `scripts/pull_all.sh` (expect 10-15 min for parquets)
+[ ] 6. Verify colab-mcp: restart Claude Code → `mcp__colab__*` tools show up
+[ ] 7. Open ASU-profile Chrome with the Colab bridge URL → click Connect → select L4 runtime
+[ ] 8. ml-trainer: smoke-train TFT on 1% slice (20-min ceiling)
+[ ] 9. Commit + tag `v0.1-scaffolded`
+```
+
+---
+
+*End of plan. This is a living document — iterate it as we build. Commit every edit.*
