@@ -41,15 +41,16 @@ const TIER_COLOR = {
 // Shared color stops for the leaflet.heat gradient AND the legend bar so
 // they stay in visual parity. primary → secondary → tertiary → error.
 const HEAT_GRADIENT: Record<number, string> = {
-  0.0: "#4fdbc8",
-  0.4: "#ffb95f",
-  0.7: "#ffb3ad",
-  1.0: "#ffb4ab",
+  0.0: "rgba(79, 219, 200, 0)",  // transparent teal — fades to nothing
+  0.25: "#4fdbc8",                // teal
+  0.5: "#ffc857",                 // saturated amber (richer than #ffb95f)
+  0.75: "#ff6b4a",                // saturated coral
+  1.0: "#ff3131",                 // deep red hotspot (punchy peak)
 };
 
 // CSS linear-gradient mirroring HEAT_GRADIENT for the legend ramp.
 const HEAT_GRADIENT_CSS =
-  "linear-gradient(to right, #4fdbc8 0%, #ffb95f 40%, #ffb3ad 70%, #ffb4ab 100%)";
+  "linear-gradient(to right, #4fdbc8 0%, #ffc857 40%, #ff6b4a 75%, #ff3131 100%)";
 
 type HeatMode = "off" | "risk" | "load";
 
@@ -329,9 +330,9 @@ export default function TacticalMap() {
     // @types/leaflet.heat augments the Leaflet module with L.heatLayer; the
     // side-effect import above wires up the runtime implementation.
     const heat: HeatLayer = L.heatLayer(points, {
-      radius: 35,
-      blur: 25,
-      minOpacity: 0.35,
+      radius: 26,
+      blur: 14,
+      minOpacity: 0.15,
       maxZoom: 17,
       max: 1.0,
       gradient: HEAT_GRADIENT,
@@ -344,6 +345,7 @@ export default function TacticalMap() {
     const heatEl = (heat as unknown as { _canvas?: HTMLCanvasElement })._canvas;
     if (heatEl) {
       heatEl.style.zIndex = "1";
+      heatEl.style.opacity = "0.85";
     }
 
     heatLayerRef.current = heat;
