@@ -10,6 +10,7 @@
 
 ## P1 — strong but not blocking
 - [ ] Stress-period MAE breakout — report summer-peak MAE (June-August 17:00-21:00 local) separately from overall hold-out MAE. Juices the forecasting scoring pillar because our win is largest in the stressed window.
+- [ ] Beat persistence on summer-evening stress window (currently -61.7% vs persistence on 2154 stress hours). Likely needs: (a) richer temp exogenous, (b) longer training, (c) separate stress-window loss weight.
 - [ ] Real Captum Integrated-Gradients attributions for `top_drivers` in the dashboard (currently heuristic placeholders like "temp_c", "hour_sin").
 - [ ] OpenDSS scale-mismatch narrative note in README and ARCHITECTURE — explicitly call out that IEEE 123 is a 3.5 MW nameplate feeder while EIA-930 AZPS is a 3.5 GW balancing area. The feeder is a topology scaffold for voltage-drop narrative, not a literal 1:1 grid.
 - [ ] Replay mode — hardcode a real summer heat-wave day (e.g., 2023-07-15 when Phoenix hit 118 F) as a demo preset, alongside "tomorrow live NWS."

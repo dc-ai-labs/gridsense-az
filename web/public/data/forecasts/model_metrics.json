@@ -26,5 +26,10 @@
       "name": "dow_sin",
       "ig": 0.07
     }
-  ]
+  ],
+  "stress_mae_kw": 6530.270279151002,
+  "stress_persistence_mae_kw": 4038.765086257114,
+  "stress_improvement_pct": -61.68977743647046,
+  "stress_hours": 2154,
+  "stress_window_definition": "summer_evenings_17_21_jun_sep"
 }

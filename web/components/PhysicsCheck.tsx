@@ -37,8 +37,10 @@ export default function PhysicsCheck() {
     }
   };
   const hasOverloads = opendss.overloads.length > 0;
-  const showViolationBanner =
-    (active === "heat" || active === "ev") && hasOverloads;
+  // Show the red "VIOLATIONS DETECTED" banner whenever the active snapshot
+  // actually has overloads — covers baseline (rare) + heat/ev + custom modes
+  // that pin to a non-baseline OpenDSS snapshot.
+  const showViolationBanner = active !== "baseline" && hasOverloads;
 
   const compareScenario: TomorrowForecast | null =
     compareWith === null

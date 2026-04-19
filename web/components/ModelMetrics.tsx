@@ -1,5 +1,7 @@
 "use client";
 
+// Stress-window metrics are in model_metrics.json for transparency; see TODO.md for the follow-up plan to beat persistence on the stress window.
+
 import { useState } from "react";
 import { useScenario } from "@/lib/context";
 

@@ -17,12 +17,14 @@ const SCENARIO_COLOR: Record<ScenarioKind, string> = {
   baseline: "#4fdbc8",
   heat: "#ffb95f",
   ev: "#ffb3ad",
+  custom: "#bbcac6",
 };
 
 const SCENARIO_LABEL: Record<ScenarioKind, string> = {
   baseline: "BASELINE",
   heat: "HEAT +10°F",
   ev: "EV SURGE",
+  custom: "CUSTOM",
 };
 
 export default function ForecastRibbon() {

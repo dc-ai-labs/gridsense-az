@@ -45,6 +45,76 @@
 @keyframes blink { to { visibility: hidden; } }
 .blinking { animation: blink 1s steps(5, start) infinite; }
 
+/* ======================================================================== */
+/* Tactical-ops sliders (what-if temp + EV knobs)                            */
+/* ======================================================================== */
+.gridsense-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: #1d2028;
+  border: 1px solid #3c4947;
+  border-radius: 0;
+  outline: none;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+}
+.gridsense-slider:focus-visible {
+  border-color: #4fdbc8;
+}
+.gridsense-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.gridsense-slider::-moz-range-track {
+  height: 6px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.gridsense-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 16px;
+  background: #e1e2ea;
+  border: 1px solid #111319;
+  border-radius: 0;
+  margin-top: -6px;
+  cursor: grab;
+  box-shadow: 0 0 0 1px #4fdbc8;
+}
+.gridsense-slider::-webkit-slider-thumb:active { cursor: grabbing; }
+.gridsense-slider::-moz-range-thumb {
+  width: 10px;
+  height: 16px;
+  background: #e1e2ea;
+  border: 1px solid #111319;
+  border-radius: 0;
+  cursor: grab;
+  box-shadow: 0 0 0 1px #4fdbc8;
+}
+.gridsense-slider--primary::-webkit-slider-thumb {
+  box-shadow: 0 0 0 1px #4fdbc8;
+  background: #4fdbc8;
+}
+.gridsense-slider--primary::-moz-range-thumb {
+  box-shadow: 0 0 0 1px #4fdbc8;
+  background: #4fdbc8;
+}
+.gridsense-slider--secondary::-webkit-slider-thumb {
+  box-shadow: 0 0 0 1px #ffb95f;
+  background: #ffb95f;
+}
+.gridsense-slider--secondary::-moz-range-thumb {
+  box-shadow: 0 0 0 1px #ffb95f;
+  background: #ffb95f;
+}
+
 /* Leaflet basemap (Phoenix) tactical-theme overrides */
 .tactical-map-leaflet .leaflet-container {
   background: #111319;

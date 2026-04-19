@@ -1,7 +1,8 @@
 // Type contracts shared with scripts/precompute_forecasts.py output.
 // Keep in sync with REBUILD_PLAN.md §3.
 
-export type ScenarioKind = "baseline" | "heat" | "ev";
+export type ScenarioPreset = "baseline" | "heat" | "ev";
+export type ScenarioKind = ScenarioPreset | "custom";
 
 export interface QuantileHour {
   /** ISO-8601 UTC timestamp aligned to hour. */
@@ -63,7 +64,7 @@ export interface OpenDssOverload {
 
 export interface OpenDssSnapshot {
   converged: boolean;
-  scenario: ScenarioKind;
+  scenario: ScenarioPreset;
   top_bus_deviations: OpenDssBusDeviation[];
   overloads: OpenDssOverload[];
 }
@@ -89,7 +90,7 @@ export interface RecommendedAction {
 }
 
 export interface TomorrowForecast {
-  scenario: ScenarioKind;
+  scenario: ScenarioPreset;
   generated_at: string;
   /** 24 hourly system-total quantile rows. */
   quantiles: QuantileHour[];
@@ -114,6 +115,16 @@ export interface ModelMetrics {
   mape_pct?: number;
   bias_kw?: number;
   top_drivers: TopDriver[];
+  /** MAE in kW over the stress window (Phoenix summer evenings). */
+  stress_mae_kw?: number;
+  /** Flat-persistence baseline MAE over the stress window, for comparison. */
+  stress_persistence_mae_kw?: number;
+  /** Percentage improvement vs persistence on stress rows only. */
+  stress_improvement_pct?: number;
+  /** Count of (window, horizon) cells included in the stress bucket. */
+  stress_hours?: number;
+  /** Human-readable tag for the stress window, e.g. "summer_evenings_17_21_jun_sep". */
+  stress_window_definition?: "summer_evenings_17_21_jun_sep" | string;
 }
 
 export interface TopologyNode {

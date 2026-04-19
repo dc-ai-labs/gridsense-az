@@ -2,7 +2,7 @@ import type {
   FeederTopology,
   GeneratedAt,
   ModelMetrics,
-  ScenarioKind,
+  ScenarioPreset,
   TomorrowForecast,
 } from "./types";
 
@@ -19,13 +19,13 @@ async function fetchJson<T>(url: string): Promise<T> {
   return data;
 }
 
-const SCENARIO_FILE: Record<ScenarioKind, string> = {
+const SCENARIO_FILE: Record<ScenarioPreset, string> = {
   baseline: "/data/forecasts/tomorrow_baseline.json",
   heat: "/data/forecasts/tomorrow_heat.json",
   ev: "/data/forecasts/tomorrow_ev.json",
 };
 
-export async function loadForecast(kind: ScenarioKind): Promise<TomorrowForecast> {
+export async function loadForecast(kind: ScenarioPreset): Promise<TomorrowForecast> {
   return fetchJson<TomorrowForecast>(SCENARIO_FILE[kind]);
 }
 

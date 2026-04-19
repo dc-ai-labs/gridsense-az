@@ -1,0 +1,11 @@
+{
+  "improvement_overall_pct": 18.381469197503993,
+  "improvement_stress_pct": -61.68977743647046,
+  "overall_mae_kw": 4573.700064403997,
+  "persistence_overall_mae_kw": 5603.75201493351,
+  "persistence_stress_mae_kw": 4038.765086257114,
+  "stress_hours": 2154,
+  "stress_mae_kw": 6530.270279151002,
+  "stress_window_definition": "summer_evenings_17_21_jun_sep",
+  "total_hours": 10350
+}

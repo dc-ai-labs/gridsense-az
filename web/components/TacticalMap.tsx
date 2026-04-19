@@ -20,12 +20,14 @@ const SCENARIO_ACCENT: Record<ScenarioKind, string> = {
   baseline: "#4fdbc8",
   heat: "#ffb95f",
   ev: "#ffb3ad",
+  custom: "#bbcac6",
 };
 
 const SCENARIO_LABEL_MAP: Record<ScenarioKind, string> = {
   baseline: "BASELINE",
   heat: "HEAT +10°F",
   ev: "EV SURGE",
+  custom: "CUSTOM",
 };
 
 const TIER_COLOR = {
