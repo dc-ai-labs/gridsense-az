@@ -70,3 +70,12 @@ Deploy: https://huggingface.co/spaces/dchanda/gridsense-az (pending T+9)
   - Nit: `pull_evi_pro.py` would benefit from a `--strict` flag to abort on first error vs continuing.
   - Wins: `.env` correctly gitignored + never tracked; graceful SKIP on missing keys across keyed pullers; idempotent (`--force` + skip-on-exist); exponential backoff bounded; `pull_resstock --explain` mode is exemplary for testability; schema-deviation docstring explains WHY not just what; IEEE PES license posture confirmed clean.
   - **Action:** nits bundled into T+20 polish SDE (along with GWNet nits).
+
+- **2026-04-18 T+1h40 · EnergyBench puller + pull_all.sh + puller test suite (SHA 8abf5c0)** — VERDICT: approve. Blockers: none.
+  - Nit: 3 of 4 HF dataset candidates in `pull_energybench.py` are hallucinated (AIEnergy/EnergyBench, microsoft/LCLF-LoadBench, electricity-load-forecasting/autoformer-benchmarks all 401). Only `ai-iot/EnergyBench` is real. Trim list + waste ~6s/run less, or mark them "speculative future mirrors" in code comment.
+  - Nit: commit message claims MANIFEST entry added; actually pre-existed from earlier commit. Harmless.
+  - Nit: `test_all_pullers_importable` uses `py_compile` (syntax check), not actual import. Relabel or combine with `test_pullers_argparse_help` (the real import exerciser).
+  - Nit: pull_energybench SKIP copy reads as if HF requires auth; actual intent is deterministic-CI behaviour. Rephrase.
+  - Nit: `len(kept) - (1 if readme else 0)` is awkward; readme is Path|None, cleaner as `int(readme is not None)`.
+  - Wins: attempt_manifest.json forensic trail, 19 tests hit every puller contract non-vacuously, env isolation correctly plumbed to subprocess, pull_all.sh if-timeout/set-e pattern is textbook.
+  - **Action:** bundled into T+20 polish SDE.
