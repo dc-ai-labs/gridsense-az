@@ -458,11 +458,14 @@ def _compute_per_bus_metrics(
     # Feeder rollup — system-total MW across 24 hours.
     peak_idx = int(np.argmax(system_mw))
     peak_mw = float(system_mw[peak_idx])
+    # Report peak_hour in Phoenix local convention (matches quantiles[].hour
+    # and the frontend validator's [17, 22] EV check).
+    peak_local_hour = int(_local_hour(forecast.timestamps[peak_idx]))
     capacity_mw = sum(v["rating_kw"] for v in per_bus.values()) / 1000.0
     load_factor = float(peak_mw / capacity_mw) if capacity_mw > 0 else 0.0
     rollup = {
         "peak_mw": peak_mw,
-        "peak_hour": peak_idx,
+        "peak_hour": peak_local_hour,
         "capacity_mw": float(capacity_mw),
         "load_factor": load_factor,
     }
@@ -499,17 +502,27 @@ def _opendss_summary(
 # --------------------------------------------------------------------------
 
 
-def _weather_summary(w: WeatherForecast, timestamps: list[datetime]) -> dict[str, Any]:
-    """Summarise the future weather used by the model."""
+def _weather_summary(
+    w: WeatherForecast,
+    timestamps: list[datetime],
+    temp_shift_c: float = 0.0,
+) -> dict[str, Any]:
+    """Summarise the future weather used by the model.
+
+    ``temp_shift_c`` is added to every temperature before converting to F so the
+    HEAT scenario's summary reflects its +5.56C (+10F) heat-wave shift instead
+    of parroting the baseline NWS value.
+    """
     future_idx = pd.DatetimeIndex(pd.to_datetime(timestamps, utc=True))
     df = w.df
     if df.index.tz is None:
         df = df.copy()
         df.index = df.index.tz_localize("UTC")
     aligned = df.reindex(future_idx, method="nearest")
-    temp_f = aligned["temp_c"].to_numpy() * 9.0 / 5.0 + 32.0
+    shifted_c = aligned["temp_c"].to_numpy() + float(temp_shift_c)
+    temp_f = shifted_c * 9.0 / 5.0 + 32.0
     if temp_f.size == 0 or not np.isfinite(temp_f).any():
-        return {"peak_temp_f": 95.0, "peak_hour": 15, "source": w.source}
+        return {"peak_temp_f": 95.0 + (temp_shift_c * 9.0 / 5.0), "peak_hour": 15, "source": w.source}
     peak_idx = int(np.nanargmax(temp_f))
     return {
         "peak_temp_f": float(temp_f[peak_idx]),
@@ -621,6 +634,7 @@ def _forecast_to_tomorrow_json(
     node_names: list[str],
     scenario_actions: list[str],
     generated_at: str,
+    weather_temp_shift_c: float = 0.0,
 ) -> dict[str, Any]:
     per_bus, leaderboard, rollup = _compute_per_bus_metrics(forecast, snap, node_names)
     # System-total quantiles per hour.
@@ -646,7 +660,7 @@ def _forecast_to_tomorrow_json(
         "risk_leaderboard": leaderboard,
         "feeder_rollup": rollup,
         "opendss": _opendss_summary(scenario, snap),
-        "weather": _weather_summary(weather, forecast.timestamps),
+        "weather": _weather_summary(weather, forecast.timestamps, temp_shift_c=weather_temp_shift_c),
         "top_drivers": list(_PLACEHOLDER_TOP_DRIVERS),
         "recommended_actions": _map_recommended_actions(scenario_actions),
     }
@@ -837,6 +851,7 @@ def run(output_dir: Path, replay: bool = False) -> dict[str, float]:
     heat_payload = _forecast_to_tomorrow_json(
         "heat", heat_fc, snap_heat, weather, history.node_names,
         heat_actions, generated_at_iso,
+        weather_temp_shift_c=HEAT_TEMP_SHIFT_C,
     )
     ev_payload = _forecast_to_tomorrow_json(
         "ev", ev_fc, snap_ev, weather, history.node_names,

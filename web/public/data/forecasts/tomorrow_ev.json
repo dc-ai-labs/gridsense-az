@@ -1,6 +1,6 @@
 {
   "scenario": "ev",
-  "generated_at": "2026-04-19T04:38:49.270992Z",
+  "generated_at": "2026-04-19T04:43:55.269957Z",
   "quantiles": [
     {
       "ts": "2023-10-01T00:00:00Z",
@@ -1029,7 +1029,7 @@
   ],
   "feeder_rollup": {
     "peak_mw": 3689.377608583212,
-    "peak_hour": 2,
+    "peak_hour": 19,
     "capacity_mw": 5538.789185546875,
     "load_factor": 0.6660982183995038
   },

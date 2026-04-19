@@ -1,6 +1,6 @@
 {
   "scenario": "heat",
-  "generated_at": "2026-04-19T04:38:49.270992Z",
+  "generated_at": "2026-04-19T04:43:55.269957Z",
   "quantiles": [
     {
       "ts": "2023-10-01T00:00:00Z",
@@ -1029,7 +1029,7 @@
   ],
   "feeder_rollup": {
     "peak_mw": 5129.466406337214,
-    "peak_hour": 1,
+    "peak_hour": 18,
     "capacity_mw": 7773.9588296875,
     "load_factor": 0.6598268036548645
   },
@@ -1117,7 +1117,7 @@
     ]
   },
   "weather": {
-    "peak_temp_f": 79.0,
+    "peak_temp_f": 89.008,
     "peak_hour": 17,
     "source": "nws"
   },

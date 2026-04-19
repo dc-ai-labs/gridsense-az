@@ -59,15 +59,30 @@ def test_heat_peak_exceeds_baseline(precompute_outputs: dict[str, Path]) -> None
 
 def test_ev_peak_hour_in_range(precompute_outputs: dict[str, Path]) -> None:
     ev = _read(precompute_outputs["ev"])
+    # feeder_rollup.peak_hour is a Phoenix-local hour 0..23 (matches the
+    # quantiles[].hour convention and the frontend validator's [17, 22] check).
     peak_hour = ev["feeder_rollup"]["peak_hour"]
-    # The peak_hour in feeder_rollup is an index 0..23 into the 24h horizon
-    # timestamps.  The EV surge injects demand only when timestamp.hour is in
-    # [17, 22], so the absolute index's corresponding hour-of-day should land
-    # in that window.  We read the actual hour from the quantiles row.
-    quantile_rows = ev["quantiles"]
-    hit_hour = quantile_rows[peak_hour]["hour"]
-    assert 17 <= hit_hour <= 22, (
-        f"ev peak-hour-of-day {hit_hour} (index {peak_hour}) outside [17, 22]"
+    assert 17 <= peak_hour <= 22, (
+        f"ev peak_hour {peak_hour} outside [17, 22]"
+    )
+
+
+def test_heat_peak_hour_in_afternoon(precompute_outputs: dict[str, Path]) -> None:
+    heat = _read(precompute_outputs["heat"])
+    peak_hour = heat["feeder_rollup"]["peak_hour"]
+    assert 12 <= peak_hour <= 21, (
+        f"heat peak_hour {peak_hour} outside afternoon heat-stress window [12, 21]"
+    )
+
+
+def test_heat_scenario_temp_shifted(precompute_outputs: dict[str, Path]) -> None:
+    baseline = _read(precompute_outputs["baseline"])
+    heat = _read(precompute_outputs["heat"])
+    base_temp_f = baseline["weather"]["peak_temp_f"]
+    heat_temp_f = heat["weather"]["peak_temp_f"]
+    assert heat_temp_f >= base_temp_f + 9.0, (
+        f"heat peak_temp_f ({heat_temp_f:.1f} F) not shifted >=9 F above baseline "
+        f"({base_temp_f:.1f} F)"
     )
 
 
