@@ -91,3 +91,12 @@ Deploy: https://huggingface.co/spaces/dchanda/gridsense-az (pending T+9)
   5. Parallel regulator edges (reg3a/b/c) collapse in nx.Graph (harmless; use MultiGraph if per-phase regulator edges ever needed).
   6. `EdgeAttributes.normamps` is never populated on IEEE 123 lines → `edge_attr[:,1]` is zero-variance (fine, mean-centred still valid).
 - **Praise:** clean dataclass schemas, local torch import, cycle-guarded Redirect walker — right level of defensive parsing for a hackathon foundation module.
+
+### 2026-04-18T18:25 — reviewer verdict on 09e603a (power_flow wrapper)
+- **Verdict:** approve (ship)
+- **Critical issues:** none. Converges in 32 iters, cold 27ms / warm 39ms. 132/132 bus alignment with topology. L115 = 157.7% (matches Kersting). Multi-phase overrides (s49a/b/c) scale together. `SnapshotResult` genuinely frozen; values are native Python floats. `test_overrides_is_pure` is a real round-trip check (delta < 1e-6).
+- **Minor nits (followup):**
+  1. Unknown-override keys silently ignored (spec wanted ValueError) — `_apply_overrides` should diff `wanted.keys()` vs matched set and raise on residual. Low-risk now, will bite decision engine on typos.
+  2. `master.exists()` check sits outside `_ENGINE_LOCK` (harmless filesystem read).
+  3. `_REGCONTROL_COMMANDS` drops the `Delay=15/30` values the canonical script sets — snapshot-convergence unaffected but time-series sim would differ; one-line comment would suffice.
+- **Praise:** collect-then-apply pattern for OpenDSS cursor iteration, the regulator-recipe comment saves the next reader a trip to Kersting.
