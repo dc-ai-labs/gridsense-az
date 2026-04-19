@@ -38,19 +38,23 @@ const TIER_COLOR = {
   primary: "#4fdbc8",
 } as const;
 
-// Shared color stops for the leaflet.heat gradient AND the legend bar so
-// they stay in visual parity. primary → secondary → tertiary → error.
+// 9-stop thermal gradient: criticality-synced from chill baseline to white-hot peak.
+// Transparent + semi-transparent low end keeps sparse areas from glowing.
 const HEAT_GRADIENT: Record<number, string> = {
-  0.0: "rgba(79, 219, 200, 0)",  // transparent teal — fades to nothing
-  0.25: "#4fdbc8",                // teal
-  0.5: "#ffc857",                 // saturated amber (richer than #ffb95f)
-  0.75: "#ff6b4a",                // saturated coral
-  1.0: "#ff3131",                 // deep red hotspot (punchy peak)
+  0.00: "rgba(79, 219, 200, 0)",       // transparent — no visual at rest
+  0.15: "rgba(79, 219, 200, 0.45)",    // chill — faint teal wash (baseline floor)
+  0.30: "#4fdbc8",                      // teal — normal operation
+  0.45: "#a8db7c",                      // lime — early caution transition
+  0.58: "#ffc857",                      // amber — caution
+  0.70: "#ff8a3b",                      // orange — elevated
+  0.82: "#ff3b2e",                      // red — critical
+  0.92: "#ffd166",                      // bright yellow — peak overload
+  1.00: "#fffbe5",                      // near-white hot core — absolute saturation
 };
 
 // CSS linear-gradient mirroring HEAT_GRADIENT for the legend ramp.
 const HEAT_GRADIENT_CSS =
-  "linear-gradient(to right, #4fdbc8 0%, #ffc857 40%, #ff6b4a 75%, #ff3131 100%)";
+  "linear-gradient(to right, #4fdbc8 0%, #a8db7c 22%, #ffc857 38%, #ff8a3b 55%, #ff3b2e 72%, #ffd166 88%, #fffbe5 100%)";
 
 type HeatMode = "off" | "risk" | "load";
 
@@ -307,45 +311,43 @@ export default function TacticalMap() {
 
     if (heatMode === "off") return;
 
-    // Normalize load to 0..1 by bus-max; risk_score is already 0..1.
-    let maxLoad = 0;
-    if (heatMode === "load") {
-      for (const n of topology.nodes) {
-        const m = perBus[n.bus];
-        if (m && m.peak_load_kw > maxLoad) maxLoad = m.peak_load_kw;
-      }
-      if (maxLoad <= 0) maxLoad = 1;
-    }
-
+    // RISK uses risk_score (already 0..1, normalized across scenarios).
+    // LOAD uses utilization = peak_load_kw / rating_kw — a scenario-independent
+    // measure of equipment stress. Baseline reads quiet (util ~0.1-0.3), heat/EV
+    // saturate (util 0.8+, occasional >1.0 = overload, which clamps to saturated
+    // white-core hotspot — intentional visual signal).
     const points: [number, number, number][] = [];
     for (const n of topology.nodes) {
       const m = perBus[n.bus];
       if (!m) continue;
       const [lat, lng] = projectToLatLng(n.x_norm, n.y_norm);
-      const intensity =
-        heatMode === "risk" ? m.risk_score : m.peak_load_kw / maxLoad;
+      let intensity: number;
+      if (heatMode === "risk") {
+        intensity = m.risk_score;
+      } else {
+        const util = m.rating_kw > 0 ? m.peak_load_kw / m.rating_kw : 0;
+        intensity = Math.min(util, 1.2); // clamp to prevent absurd kernels
+      }
       points.push([lat, lng, intensity]);
     }
 
-    // @types/leaflet.heat augments the Leaflet module with L.heatLayer; the
-    // side-effect import above wires up the runtime implementation.
+    // RISK: tight kernels → sharp pings on critical buses.
+    // LOAD: wider kernels → smooth zones showing regional demand.
+    const isRisk = heatMode === "risk";
     const heat: HeatLayer = L.heatLayer(points, {
-      radius: 26,
-      blur: 14,
-      minOpacity: 0.15,
+      radius: isRisk ? 20 : 32,
+      blur: isRisk ? 10 : 18,
+      minOpacity: 0.08,
       maxZoom: 17,
       max: 1.0,
       gradient: HEAT_GRADIENT,
     });
     heat.addTo(map);
 
-    // Force heat canvas below the SVG overlay (edges/nodes/focus) so bus
-    // markers stay crisp on top. Leaflet heat creates its own canvas inside
-    // overlayPane; push it behind via CSS z-index tweak.
     const heatEl = (heat as unknown as { _canvas?: HTMLCanvasElement })._canvas;
     if (heatEl) {
       heatEl.style.zIndex = "1";
-      heatEl.style.opacity = "0.85";
+      heatEl.style.opacity = "0.80";
     }
 
     heatLayerRef.current = heat;
@@ -614,12 +616,19 @@ export default function TacticalMap() {
       )}
 
       {/* Heatmap legend + toggle (top-right) */}
-      <div className="absolute top-3 right-3 z-[600] bg-surface/85 border border-outline-variant p-2 font-mono text-[9px] uppercase tracking-widest w-[186px]">
-        <div className="flex items-center justify-between mb-1.5">
+      <div className="absolute top-3 right-3 z-[600] bg-surface/85 border border-outline-variant p-2 font-mono text-[9px] uppercase tracking-widest w-[196px]">
+        <div className="flex items-center justify-between mb-0.5">
           <span className="text-on-surface-variant">HEATMAP</span>
           <span className="text-primary">
             {heatMode === "off" ? "—" : heatMode.toUpperCase()}
           </span>
+        </div>
+        <div className="text-[8px] text-on-surface-variant tracking-normal mb-1.5 h-[11px]">
+          {heatMode === "risk"
+            ? "Physics violation severity"
+            : heatMode === "load"
+              ? "Equipment utilization"
+              : "Overlay disabled"}
         </div>
         <div className="flex gap-1 mb-2">
           {(["off", "risk", "load"] as const).map((mode) => {
@@ -649,9 +658,19 @@ export default function TacticalMap() {
           style={{ backgroundImage: HEAT_GRADIENT_CSS }}
         />
         <div className="flex justify-between text-[8px] text-on-surface-variant mt-0.5 tracking-normal">
-          <span>0.0</span>
-          <span>0.5</span>
-          <span>1.0</span>
+          {heatMode === "load" ? (
+            <>
+              <span>IDLE</span>
+              <span>HEAVY</span>
+              <span>OVER</span>
+            </>
+          ) : (
+            <>
+              <span>CHILL</span>
+              <span>WARN</span>
+              <span>CRIT</span>
+            </>
+          )}
         </div>
       </div>
 
