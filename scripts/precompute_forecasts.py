@@ -85,7 +85,7 @@ def _local_hour(ts) -> int:
     """Convert a UTC timestamp to Phoenix local hour-of-day (UTC-7, no DST)."""
     return (pd.Timestamp(ts).tz_convert("UTC").hour + LOCAL_TZ_OFFSET_HOURS) % 24
 
-EV_FLEET_SIZE: int = 2000
+EV_FLEET_SIZE: int = 40000
 EV_KW_PER_EV: float = 7.2
 EV_TARGET_K: int = 20
 EV_PEAK_HOURS: range = range(17, 23)  # 17..22 inclusive

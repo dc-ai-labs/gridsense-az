@@ -9,7 +9,11 @@
 //                             + t_ev   * (ev   - baseline) * evGate(field)
 //
 // where
-//   t_temp = clamp(tempDeltaF / 10, -0.5, 2.5)
+//   t_temp = asymmetric: positive = clamp(tempDeltaF / 10, 0, 2.5);
+//            negative   = clamp(tempDeltaF / 20, -0.25, 0) — half sensitivity,
+//            floor at -0.25. Models modest AC relief when cooler than today
+//            without extrapolating the heat-wave Δ backward (which would be
+//            an unphysical mirror of the +10°F anchor).
 //   t_ev   = clamp(evPenetrationPct / 35, 0, 2.857)
 //
 // and evGate is 1 everywhere except for quantile fields, where EV load is
@@ -37,7 +41,7 @@ import type {
 const TEMP_ANCHOR_F = 10; // heat.json was precomputed for +10°F
 const EV_ANCHOR_PCT = 35; // ev.json was precomputed for +35% penetration
 
-const TEMP_T_MIN = -0.5;
+const TEMP_T_MIN = -0.25;
 const TEMP_T_MAX = 2.5;
 const EV_T_MIN = 0;
 const EV_T_MAX = 100 / EV_ANCHOR_PCT; // i.e. slider max 100 / 35
@@ -50,7 +54,14 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 export function tempFactor(tempDeltaF: number): number {
-  return clamp(tempDeltaF / TEMP_ANCHOR_F, TEMP_T_MIN, TEMP_T_MAX);
+  // Positive: linear extrapolation of the heat anchor (+10°F → factor 1.0).
+  // Negative: HALF sensitivity, clamped to -0.25. Cooling below today mildly
+  // trims AC load; we do not extrapolate the heat-wave Δ backward because
+  // that would be an unphysical mirror of the heat anchor.
+  if (tempDeltaF >= 0) {
+    return clamp(tempDeltaF / TEMP_ANCHOR_F, 0, TEMP_T_MAX);
+  }
+  return clamp(tempDeltaF / (TEMP_ANCHOR_F * 2), TEMP_T_MIN, 0);
 }
 
 export function evFactor(evPenetrationPct: number): number {
