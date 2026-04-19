@@ -422,9 +422,15 @@ def _compute_per_bus_metrics(
     snap: SnapshotResult,
     node_names: list[str],
     system_capacity_mw: float | None = None,
+    baseline_peak_kw_per_bus: np.ndarray | None = None,
 ) -> tuple[dict[str, dict[str, float]], list[dict[str, Any]], dict[str, float]]:
     """Build the per-bus metric dict, the top-10 risk leaderboard, and the
     feeder rollup dict.
+
+    ``baseline_peak_kw_per_bus`` (optional) locks the per-bus rating to a
+    stable reference derived from the baseline scenario. This makes
+    utilization = scenario_peak / baseline_peak / 1.25 vary meaningfully
+    across scenarios instead of collapsing to 0.667 for every bus.
     """
     # Peak kW per bus over the 24h horizon.
     peak_kw_per_bus = forecast.p50.max(axis=0)  # [N]
@@ -432,31 +438,55 @@ def _compute_per_bus_metrics(
     system_mw = forecast.p50.sum(axis=1) / 1000.0  # [T_out]
     peak_mw_per_bus = peak_kw_per_bus / 1000.0
 
+    # Rating: use baseline peak as the fixed capacity reference for all
+    # scenarios (feeder sized for 25% headroom over normal operating peak).
+    # For the baseline run itself (ref is None) fall back to this scenario's
+    # peak so baseline utilization sits at ~0.80 by construction.
+    ref_peak = (
+        baseline_peak_kw_per_bus
+        if baseline_peak_kw_per_bus is not None
+        else peak_kw_per_bus
+    )
+    rating_kw_per_bus = np.maximum(ref_peak * 1.25, 50.0)
+
     # Voltage deviation from 1.0 pu (magnitude); missing buses get 0 dev.
     vdev = {bus: abs(snap.bus_voltages_pu.get(bus, 1.0) - 1.0) for bus in node_names}
-    # Overload probability proxy: max line loading through the network is shared,
-    # but we assign per-bus risk using worst connected line — without explicit
-    # incidence, use a simple heuristic: a bus's overload prob is clamp(max_loading/150, 0, 1).
+    vdev_arr = np.array([vdev.get(bus, 0.0) for bus in node_names], dtype=np.float64)
+
     worst_loading = max(snap.line_loadings_pct.values()) if snap.line_loadings_pct else 0.0
-    # Heuristic per-bus: buses with higher peak load more likely connected to overloaded feeders.
+    # Peak-share for system-stress weighting.
     if peak_kw_per_bus.max() > 0:
         peak_share = peak_kw_per_bus / peak_kw_per_bus.max()
     else:
         peak_share = np.zeros_like(peak_kw_per_bus)
-    overload_prob = np.clip((worst_loading / 150.0) * peak_share, 0.0, 1.0)
+
+    # Graceful, non-saturating risk formula:
+    # - local_overload: utilization against rating; 0 at 70% util, 1 at 110% util.
+    # - voltage_risk: 0 at deviation=0, 1 at deviation >= 7% pu.
+    # - system_stress: global factor 0 at worst_loading <= 100%, 1 at >= 200%.
+    util_arr = peak_kw_per_bus / rating_kw_per_bus
+    local_overload = np.clip((util_arr - 0.70) / 0.40, 0.0, 1.0)
+    voltage_risk = np.clip(vdev_arr / 0.07, 0.0, 1.0)
+    system_stress = np.clip((worst_loading - 100.0) / 100.0, 0.0, 1.0)
+    risk_score_arr = np.clip(
+        0.40 * local_overload
+        + 0.30 * voltage_risk
+        + 0.30 * system_stress * peak_share,
+        0.0,
+        1.0,
+    )
 
     per_bus: dict[str, dict[str, float]] = {}
     bus_rows: list[tuple[str, float, float]] = []  # (bus, risk_score, peak_mw)
     for i, bus in enumerate(node_names):
         pk_kw = float(peak_kw_per_bus[i])
-        rating_kw = max(pk_kw * 1.5, 50.0)
-        vdev_i = float(vdev.get(bus, 0.0))
-        risk_score = float(np.clip(0.6 * overload_prob[i] + 0.4 * (vdev_i / 0.05), 0.0, 1.0))
+        rating_kw = float(rating_kw_per_bus[i])
+        risk_score = float(risk_score_arr[i])
         per_bus[bus] = {
             "bus": bus,
             "risk_score": risk_score,
             "peak_load_kw": pk_kw,
-            "rating_kw": float(rating_kw),
+            "rating_kw": rating_kw,
         }
         bus_rows.append((bus, risk_score, pk_kw / 1000.0))
 
@@ -656,9 +686,14 @@ def _forecast_to_tomorrow_json(
     generated_at: str,
     weather_temp_shift_c: float = 0.0,
     system_capacity_mw: float | None = None,
+    baseline_peak_kw_per_bus: np.ndarray | None = None,
 ) -> dict[str, Any]:
     per_bus, leaderboard, rollup = _compute_per_bus_metrics(
-        forecast, snap, node_names, system_capacity_mw=system_capacity_mw
+        forecast,
+        snap,
+        node_names,
+        system_capacity_mw=system_capacity_mw,
+        baseline_peak_kw_per_bus=baseline_peak_kw_per_bus,
     )
     # System-total quantiles per hour.
     p10_mw = forecast.p10.sum(axis=1) / 1000.0
@@ -947,7 +982,46 @@ def run(output_dir: Path, replay: bool = False) -> dict[str, float]:
     # Scenario-derived action strings (uses ScenarioResult from decision.py).
     heat_actions = recommend_actions(heat_wave_scenario(demand_multiplier=1.4))
     ev_actions = recommend_actions(ev_surge_scenario(ev_fleet_size=EV_FLEET_SIZE))
-    baseline_actions: list[str] = []
+
+    # Baseline: derive a "healthy grid" default when the physics snapshot
+    # shows no overloads/violations; otherwise surface what the solver saw.
+    baseline_system_peak_mw = float(baseline_fc.p50.sum(axis=1).max() / 1000.0)
+    worst_loading_baseline = (
+        max(snap_baseline.line_loadings_pct.values())
+        if snap_baseline.line_loadings_pct
+        else 0.0
+    )
+    min_v_baseline = (
+        min(snap_baseline.bus_voltages_pu.values())
+        if snap_baseline.bus_voltages_pu
+        else 1.0
+    )
+    if worst_loading_baseline < 90.0 and min_v_baseline >= 0.96:
+        baseline_actions: list[str] = [
+            "Grid is in healthy state — no immediate action required",
+            (
+                f"Monitor evening hours (17:00-21:00 MST) when load typically peaks at "
+                f"{baseline_system_peak_mw:.0f} MW"
+            ),
+            "Schedule routine capacitor-bank health checks ahead of summer peak season",
+        ]
+    else:
+        baseline_actions = []
+        if worst_loading_baseline >= 100:
+            worst_line = max(
+                snap_baseline.line_loadings_pct.items(), key=lambda kv: kv[1]
+            )[0]
+            baseline_actions.append(
+                f"Line {worst_line.upper()} is carrying {worst_loading_baseline:.0f}% of "
+                f"rated capacity at baseline — upgrade conductor or rebalance feeder load"
+            )
+        if min_v_baseline < 0.95:
+            baseline_actions.append(
+                f"Voltage already marginal at baseline (min {min_v_baseline * 100:.1f}%) — "
+                f"investigate if this is a model or feeder topology issue"
+            )
+        if not baseline_actions:
+            baseline_actions = ["Grid operating within normal parameters"]
 
     generated_at_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -956,8 +1030,10 @@ def run(output_dir: Path, replay: bool = False) -> dict[str, float]:
     # Use the baseline system peak as the fixed capacity reference for all
     # scenarios so the load factor meaningfully shows how much stress each
     # scenario adds relative to normal operating conditions.
-    baseline_system_peak_mw = float(baseline_fc.p50.sum(axis=1).max() / 1000.0)
     logger.info("baseline system peak for capacity reference: %.1f MW", baseline_system_peak_mw)
+    # Freeze the per-bus capacity reference at the baseline peak so heat and
+    # EV scenarios produce varying utilization instead of collapsing to 0.667.
+    baseline_peak_kw_per_bus = baseline_fc.p50.max(axis=0)
 
     baseline_payload = _forecast_to_tomorrow_json(
         "baseline", baseline_fc, snap_baseline, weather, history.node_names,
@@ -969,11 +1045,13 @@ def run(output_dir: Path, replay: bool = False) -> dict[str, float]:
         heat_actions, generated_at_iso,
         weather_temp_shift_c=HEAT_TEMP_SHIFT_C,
         system_capacity_mw=baseline_system_peak_mw,
+        baseline_peak_kw_per_bus=baseline_peak_kw_per_bus,
     )
     ev_payload = _forecast_to_tomorrow_json(
         "ev", ev_fc, snap_ev, weather, history.node_names,
         ev_actions, generated_at_iso,
         system_capacity_mw=baseline_system_peak_mw,
+        baseline_peak_kw_per_bus=baseline_peak_kw_per_bus,
     )
 
     topology_payload = _build_topology_payload()
