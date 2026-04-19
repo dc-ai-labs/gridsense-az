@@ -42,3 +42,12 @@ Deploy: https://huggingface.co/spaces/dchanda/gridsense-az (pending T+9)
 - 2026-04-18: HF Space requirements are split from main `requirements.txt` — HF Space ships `torch + streamlit + pydeck + plotly + pandas + duckdb + opendssdirect.py + hf_hub + captum` only. Keeps the Space build under the 10-min free-tier ceiling.
 - 2026-04-18: GitHub account used is `dc-ai-labs` (active `gh auth` account); HF_USERNAME is `dchanda` per PLAN §0.5.
 - 2026-04-18: Model weights shipped via HF Hub, not git-LFS (PLAN §8 risk register). `.gitattributes` still declares LFS filters for *.pt/*.ckpt/*.bin in case of local caches.
+
+
+## Reviewer log
+
+- **2026-04-18 T+0 · Scaffold (SHA 7fc782e, tag v0.1-scaffolded)** — VERDICT: approve. Blockers: none.
+  - Nit (deferred to T+20 README pass): shields.io python-version badge has  escape glitch.
+  - Nit (deferred / stretch-only): requirements.txt omits pytorch-forecasting + mapie (both §3.3 stretch).
+  - Nit (monitoring): hf_space torch CPU wheel ~700 MB; watch HF Space 10-min build budget.
+  - Nit (non-blocking): brief .docx + PLAN.v1.md.bak committed at repo root; intentional, bloats clone.
