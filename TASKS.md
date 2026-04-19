@@ -61,3 +61,12 @@ Deploy: https://huggingface.co/spaces/dchanda/gridsense-az (pending T+9)
   - Nit: reliability diagram is 3-point (p10/p50/p90); swap for conformal/multi-quantile sweep in final pass.
   - Win: model file is production-grade (self-loop adjacency normalisation, shape-asserting pinball, dual-mode Colab+local notebook).
   - **Action:** micro-fix SDE queued for after data-puller + OpenDSS SDEs land.
+
+- **2026-04-18 T+1h20 · Data pullers + IEEE 123 vendoring (SHA 2de0f30)** — VERDICT: approve. Blockers: none.
+  - Nit (priority): `pull_ieee123.sh` clones from `tshort/OpenDSS`, but vendored `data/ieee123/` was actually sourced from `dss-extensions/electricdss-tst`. Reconcile in polish pass: either (a) point script at electricdss-tst, or (b) add `data/ieee123/README.md` pinning source repo + commit SHA + retrieval date.
+  - Nit (cheap insurance): `pull_eia930.py` pagination loop lacks hard `max_pages` guard (infinite loop if server ever returns PAGE_SIZE indefinitely). Add `MAX_PAGES = 200`.
+  - Nit: `pull_resstock.py` f-string-interpolates `--s3-path` into SQL (operator CLI so not an injection surface, but code smell).
+  - Nit: magic `1024` min payload duplicated in noaa + nsrdb; magic `3` retry count hardcoded — extract to module constants.
+  - Nit: `pull_evi_pro.py` would benefit from a `--strict` flag to abort on first error vs continuing.
+  - Wins: `.env` correctly gitignored + never tracked; graceful SKIP on missing keys across keyed pullers; idempotent (`--force` + skip-on-exist); exponential backoff bounded; `pull_resstock --explain` mode is exemplary for testability; schema-deviation docstring explains WHY not just what; IEEE PES license posture confirmed clean.
+  - **Action:** nits bundled into T+20 polish SDE (along with GWNet nits).
