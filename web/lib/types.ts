@@ -129,6 +129,9 @@ export interface TopologyEdge {
   from: string;
   to: string;
   kind?: "line" | "xfmr" | "switch";
+  /** OpenDSS element name (lowercase, e.g. "l115", "sw1"). Joins
+   *  ``opendss.overloads[].element`` to a topology edge for highlighting. */
+  name?: string;
 }
 
 export interface FeederTopology {

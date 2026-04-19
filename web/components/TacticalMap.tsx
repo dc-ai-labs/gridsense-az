@@ -71,8 +71,17 @@ interface HoverState {
 }
 
 export default function TacticalMap() {
-  const { active, compareWith, current, baseline, heat, ev, topology } =
-    useScenario();
+  const {
+    active,
+    compareWith,
+    current,
+    baseline,
+    heat,
+    ev,
+    topology,
+    focus,
+    setFocus,
+  } = useScenario();
   const [hover, setHover] = useState<HoverState | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(
     null,
@@ -87,6 +96,7 @@ export default function TacticalMap() {
   const nodesLayerRef = useRef<LayerGroup | null>(null);
   const compareLayerRef = useRef<LayerGroup | null>(null);
   const evLayerRef = useRef<LayerGroup | null>(null);
+  const focusLayerRef = useRef<LayerGroup | null>(null);
 
   const compareScenario: TomorrowForecast | null =
     compareWith === null
@@ -154,6 +164,8 @@ export default function TacticalMap() {
       const nodesLayer = L.layerGroup().addTo(map);
       const compareLayer = L.layerGroup().addTo(map);
       const evLayer = L.layerGroup().addTo(map);
+      // Focus layer sits on top of everything else.
+      const focusLayer = L.layerGroup().addTo(map);
 
       mapRef.current = map;
       leafletRef.current = L;
@@ -161,6 +173,7 @@ export default function TacticalMap() {
       nodesLayerRef.current = nodesLayer;
       compareLayerRef.current = compareLayer;
       evLayerRef.current = evLayer;
+      focusLayerRef.current = focusLayer;
       setMapReady(true);
 
       // Force a redraw once the parent flex layout has settled.
@@ -178,6 +191,7 @@ export default function TacticalMap() {
       nodesLayerRef.current = null;
       compareLayerRef.current = null;
       evLayerRef.current = null;
+      focusLayerRef.current = null;
     };
   }, []);
 
@@ -338,6 +352,110 @@ export default function TacticalMap() {
     }
   }, [topology, evBusSet, active, mapReady]);
 
+  // Focus highlight (driven by PhysicsCheck row clicks via context).
+  // Renders a bright halo + label for the focused bus, and/or a thick highlight
+  // polyline for the focused OpenDSS line/switch element.
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    const layer = focusLayerRef.current;
+    if (!L || !map || !layer || !mapReady) return;
+    layer.clearLayers();
+    if (!focus) return;
+
+    const accent = focus.element ? "#ffb4ab" : "#4fdbc8";
+
+    // Highlight a focused element (line/switch). Match by topology edge `name`.
+    if (focus.element) {
+      const edge = topology.edges.find(
+        (e) => (e.name ?? "").toLowerCase() === focus.element,
+      );
+      if (edge) {
+        const a = topology.nodes.find((n) => n.bus === edge.from);
+        const b = topology.nodes.find((n) => n.bus === edge.to);
+        if (a && b) {
+          const aLL = projectToLatLng(a.x_norm, a.y_norm);
+          const bLL = projectToLatLng(b.x_norm, b.y_norm);
+          // Glow underlay
+          L.polyline([aLL, bLL], {
+            color: accent,
+            weight: 9,
+            opacity: 0.25,
+            interactive: false,
+          }).addTo(layer);
+          // Crisp top stroke
+          L.polyline([aLL, bLL], {
+            color: accent,
+            weight: 3,
+            opacity: 1,
+            interactive: false,
+          }).addTo(layer);
+          // Endpoint markers
+          for (const ll of [aLL, bLL]) {
+            L.circleMarker(ll, {
+              radius: 6,
+              color: accent,
+              weight: 2,
+              fill: false,
+              interactive: false,
+            }).addTo(layer);
+          }
+          // Center label
+          const midLat = (aLL[0] + bLL[0]) / 2;
+          const midLng = (aLL[1] + bLL[1]) / 2;
+          L.marker([midLat, midLng], {
+            interactive: false,
+            keyboard: false,
+            icon: L.divIcon({
+              className: "tactical-focus-label",
+              html: `<span>${focus.element.toUpperCase()} · ${edge.from}↔${edge.to}</span>`,
+              iconSize: [0, 0],
+              iconAnchor: [0, 0],
+            }),
+          }).addTo(layer);
+        }
+      }
+    }
+
+    // Highlight a focused bus.
+    if (focus.bus) {
+      const node = topology.nodes.find((n) => n.bus === focus.bus);
+      if (node) {
+        const ll = projectToLatLng(node.x_norm, node.y_norm);
+        const busAccent = focus.element ? "#ffb4ab" : "#4fdbc8";
+        L.circleMarker(ll, {
+          radius: 14,
+          color: busAccent,
+          weight: 2,
+          opacity: 0.9,
+          fill: false,
+          interactive: false,
+        }).addTo(layer);
+        L.circleMarker(ll, {
+          radius: 22,
+          color: busAccent,
+          weight: 1,
+          opacity: 0.45,
+          fill: false,
+          dashArray: "4 3",
+          interactive: false,
+        }).addTo(layer);
+        L.marker(ll, {
+          interactive: false,
+          keyboard: false,
+          icon: L.divIcon({
+            className: "tactical-focus-label",
+            html: `<span>BUS_${focus.bus.toUpperCase()}</span>`,
+            iconSize: [0, 0],
+            iconAnchor: [0, -18],
+          }),
+        }).addTo(layer);
+
+        map.panTo(ll, { animate: true, duration: 0.4 });
+      }
+    }
+  }, [focus, topology, mapReady]);
+
   // Re-position hover tooltip on hover change OR on map pan/zoom.
   useEffect(() => {
     const map = mapRef.current;
@@ -384,6 +502,38 @@ export default function TacticalMap() {
         LAYER: IEEE_123_BUS_NETWORK // BASEMAP: PHX_AZ · SCEN:{" "}
         <span className="text-primary">{active.toUpperCase()}</span>
       </div>
+
+      {/* Focus pill (visible when PhysicsCheck row is selected) */}
+      {focus && (
+        <div
+          className="absolute top-12 left-3 z-[600] flex items-center gap-1 font-mono text-[9px] uppercase tracking-widest border bg-surface/90 pl-2 pr-1 py-1"
+          style={{ borderColor: focus.element ? "#ffb4ab" : "#4fdbc8" }}
+        >
+          <span
+            className="material-symbols-outlined text-[12px] leading-none"
+            style={{ color: focus.element ? "#ffb4ab" : "#4fdbc8" }}
+            aria-hidden
+          >
+            my_location
+          </span>
+          <span style={{ color: focus.element ? "#ffb4ab" : "#4fdbc8" }}>
+            FOCUS:
+          </span>
+          <span className="text-on-surface">
+            {focus.element
+              ? focus.element.toUpperCase()
+              : `BUS_${focus.bus?.toUpperCase()}`}
+          </span>
+          <button
+            type="button"
+            onClick={() => setFocus(null)}
+            title="Clear focus (Esc)"
+            className="ml-1 px-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low cursor-pointer"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Ghost-layer legend when comparing */}
       {compareWith && compareAccent && (

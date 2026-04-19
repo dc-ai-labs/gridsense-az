@@ -705,7 +705,13 @@ def _build_topology_payload() -> dict[str, Any]:
             kind = "switch"
         else:
             kind = "line"
-        edges_payload.append({"from": u, "to": v, "kind": kind})
+        edge: dict[str, str] = {"from": u, "to": v, "kind": kind}
+        # Carry the OpenDSS element name (e.g. "l115", "sw1") so the
+        # frontend can map opendss.overloads[].element back to a polyline.
+        name = (attrs.get("name") or "").strip().lower()
+        if name:
+            edge["name"] = name
+        edges_payload.append(edge)
     return {
         "n_nodes": len(node_names),
         "nodes": nodes_payload,

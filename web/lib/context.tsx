@@ -25,6 +25,17 @@ import type {
 } from "./types";
 import { validateForecasts } from "./validate";
 
+/** Cross-component focus broadcast. PhysicsCheck rows + (future) leaderboard
+ *  rows set this; TacticalMap reads it to highlight the matching node/edge. */
+export interface MapFocus {
+  /** Lowercase bus name (e.g. "150r"). */
+  bus?: string;
+  /** Lowercase OpenDSS line/switch element name (e.g. "l115", "sw1"). */
+  element?: string;
+  /** Optional UI label / origin ("BUS_DEV" | "OVERLOAD" | …). */
+  source?: string;
+}
+
 interface ScenarioState {
   active: ScenarioKind;
   setActive: (s: ScenarioKind) => void;
@@ -39,6 +50,9 @@ interface ScenarioState {
   generatedAt: GeneratedAt;
   /** Convenience: the currently-active forecast record. */
   current: TomorrowForecast;
+  /** Cross-component focus (clicking PhysicsCheck rows etc.). */
+  focus: MapFocus | null;
+  setFocus: (f: MapFocus | null) => void;
 }
 
 const ScenarioContext = createContext<ScenarioState | null>(null);
@@ -60,8 +74,15 @@ export function ScenarioProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [active, setActive] = useState<ScenarioKind>("baseline");
   const [compareWith, setCompareWith] = useState<ScenarioKind | null>(null);
+  const [focus, setFocusState] = useState<MapFocus | null>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
+
+  // Drop the focus when the active scenario changes — overload "l115" in heat
+  // may not exist in baseline, so a stale focus would highlight a now-clean line.
+  useEffect(() => {
+    setFocusState(null);
+  }, [active]);
 
   // Auto-clear compareWith if user activates the same scenario.
   useEffect(() => {
@@ -122,6 +143,9 @@ export function ScenarioProvider({ children }: { children: ReactNode }) {
       } else if (key === "e") {
         e.preventDefault();
         setActive("ev");
+      } else if (key === "escape") {
+        e.preventDefault();
+        setFocusState(null);
       } else if (key === "c") {
         e.preventDefault();
         // Cycle compareWith through null -> next non-active scenario -> null.
@@ -146,6 +170,10 @@ export function ScenarioProvider({ children }: { children: ReactNode }) {
     (s: ScenarioKind | null) => setCompareWith(s),
     [],
   );
+  const setFocusCb = useCallback(
+    (f: MapFocus | null) => setFocusState(f),
+    [],
+  );
 
   const value = useMemo<ScenarioState | null>(() => {
     if (state.kind !== "ready") return null;
@@ -167,8 +195,10 @@ export function ScenarioProvider({ children }: { children: ReactNode }) {
       metrics: state.metrics,
       generatedAt: state.generatedAt,
       current,
+      focus,
+      setFocus: setFocusCb,
     };
-  }, [state, active, compareWith, setActiveCb, setCompareCb]);
+  }, [state, active, compareWith, focus, setActiveCb, setCompareCb, setFocusCb]);
 
   if (state.kind === "loading") {
     return <LoadingSkeleton />;

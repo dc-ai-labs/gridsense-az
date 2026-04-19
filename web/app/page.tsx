@@ -22,10 +22,10 @@ export default function Page() {
         </section>
         <aside className="overflow-y-auto flex flex-col bg-surface min-h-0">
           <div className="flex-shrink-0">
-            <RiskLeaderboard />
+            <ModelMetrics />
           </div>
           <div className="flex-shrink-0">
-            <ModelMetrics />
+            <RiskLeaderboard />
           </div>
           <div className="flex-shrink-0">
             <PhysicsCheck />
