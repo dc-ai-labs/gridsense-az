@@ -85,6 +85,12 @@ def _local_hour(ts) -> int:
     """Convert a UTC timestamp to Phoenix local hour-of-day (UTC-7, no DST)."""
     return (pd.Timestamp(ts).tz_convert("UTC").hour + LOCAL_TZ_OFFSET_HOURS) % 24
 
+# EV scenario sizing: represents ~40,000 concurrent evening chargers in APS
+# service area. Derivation: APS has ~1.3M customer accounts; at 35% EV
+# penetration that's ~525k registered EVs; typical residential evening
+# simultaneity factor is ~20%, giving ~105k concurrent chargers across the
+# territory. We model a conservative 40k figure for the representative
+# residential-feeder window spanned by IEEE-123 (see docs/PRACTICALITY.md).
 EV_FLEET_SIZE: int = 40000
 EV_KW_PER_EV: float = 7.2
 EV_TARGET_K: int = 20

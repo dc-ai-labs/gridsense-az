@@ -107,7 +107,7 @@ The persistence baseline is the honest "just repeat the last observed value" for
 ## Limitations
 
 1. **Per-bus target is synthetic disaggregation, not metering.** We take AZPS system demand from EIA-930 and split it across the 132 buses by each bus's nominal nameplate kW share. This is a sensible-but-not-physical prior; we do not have real AMI at feeder level. The point forecast therefore predicts a physically plausible but statistically generated per-bus load, and the aggregate MAE should be read as "system-shape MAE," not "feeder-shape MAE."
-2. **NSRDB solar irradiance and EVI-Pro EV load are unavailable.** See [`BLOCKERS.md`](../BLOCKERS.md). Both endpoints are currently 404/400-ing against our credentials. The feature bundle falls back to NOAA temp/dewpoint/humidity/wind + calendar features — the demand-driving signals. Adding irradiance and EV profiles is expected to help the val→test gap but is not blocking this release.
+2. **NSRDB solar irradiance and EVI-Pro EV load are unavailable.** Both endpoints are currently 404/400-ing against our credentials (NSRDB PSM3 returns 400 on the v2 points endpoint; EVI-Pro Lite's county-profile endpoint returns 404 for Maricopa County under our key). The feature bundle falls back to NOAA temp/dewpoint/humidity/wind + calendar features — the demand-driving signals. Adding irradiance and EV profiles is expected to help the val→test gap but is not blocking this release.
 3. **6-hour horizon cap.** The model is configured for `T_out = 6`. Longer-horizon claims are not supported by this run; extending would require retraining (cheap — 2.74 s/epoch on A100) and re-tuning the cosine schedule.
 4. **Loss is pure pinball.** We intentionally did not add an MAE or Huber term on the p50 slot; the pinball loss at q=0.5 reduces to half-MAE, which gives the p50 its own gradient contribution. If coverage calibration slips in v2 we will revisit.
 
@@ -158,7 +158,7 @@ print('loaded', sum(p.numel() for p in m.parameters()), 'params')
 
 ## Pointers for v2
 
-- Restore NSRDB PSM3 and EVI-Pro pullers (see `BLOCKERS.md`) — adds irradiance + EV load features.
+- Restore NSRDB PSM3 and EVI-Pro pullers once the upstream endpoints are reachable — adds irradiance + EV load features.
 - Larger `d_hidden` (64) + 6 blocks to see if the val→test gap closes with more capacity.
 - Coverage diagnostics: compute p10/p90 empirical coverage on test and reliability plot.
 - Swap synthetic disaggregation for ResStock-derived per-feeder profiles once the ResStock puller is wired into features.
