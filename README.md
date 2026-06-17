@@ -1,176 +1,144 @@
 # GridSense-AZ
 
-Spatio-temporal AI for Arizona Public Service distribution-grid forecasting.
+**Spatio-temporal AI that forecasts the Arizona power grid 24 hours ahead, stress tests it against heat and EV demand, and validates every prediction against real power flow physics.**
 
-Graph WaveNet + quantile head (p10/p50/p90) → 24h day-ahead per-bus load forecasts → heat / EV stress scenarios → OpenDSS physics check → Next.js tactical-ops dashboard.
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-Graph%20WaveNet-EE4C2C?logo=pytorch&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-14-000000?logo=nextdotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![OpenDSS](https://img.shields.io/badge/OpenDSS-Power%20Flow-2C7FB8)
+![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?logo=vercel&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-Built for the ASU Energy Hackathon — APS "AI for Energy" Challenge.
+> Built at the ASU Energy Hackathon for the Arizona Public Service "AI for Energy" Challenge.
 
-**Live demos**
-- Dashboard (Vercel): https://gridsense-az.vercel.app
-- ML Space (HF): https://dc-ai-labs-gridsense-az.hf.space/
+**TLDR:** GridSense-AZ predicts electricity demand for every node on a Phoenix distribution feeder a full day ahead, then runs a physics simulation to flag which nodes will overload during a heat wave or an evening EV charging surge. A Python backend turns raw weather and demand data into validated forecasts. A web dashboard lets an operator explore any scenario instantly, with no server in the loop.
 
-## Documentation
+<img width="800" height="520" alt="grid" src="https://github.com/user-attachments/assets/4236f3da-e0c8-4866-9f0d-7a87615cb83e" />
 
-Rubric-aligned deep dives live under [`docs/`](docs/):
 
-- [docs/AI_MODEL_CARD.md](docs/AI_MODEL_CARD.md) — model, training, metrics, calibration, limitations
-- [docs/METRICS.md](docs/METRICS.md) — every number we report + the risk-score formula
-- [docs/PHYSICS.md](docs/PHYSICS.md) — Kirchhoff / Ohm, IEEE 123, OpenDSS snapshot usage, ANSI C84.1
-- [docs/PRACTICALITY.md](docs/PRACTICALITY.md) — target utility customer, integration path, pricing, regulatory
-- [docs/DATA.md](docs/DATA.md) — NOAA / NWS / EIA-930 / IEEE 123 sources, attribution, reproducibility
-- [ARCHITECTURE.md](ARCHITECTURE.md) — end-to-end data / model / frontend architecture
-- [reports/gwnet_v1.md](reports/gwnet_v1.md) — long-form training eval report
+**Live Link:** [link](https://gridsense-az.vercel.app)
 
-## What's in this repo
+**ML playground:** [link](https://dc-ai-labs-gridsense-az.hf.space)
 
-| Path | What it is |
+---
+
+
+## The problem
+ 
+Grid operators need to see trouble before it happens. On a brutal Phoenix afternoon, or when thousands of EVs plug in at 6 pm, some feeder nodes cross voltage and thermal limits and fail. GridSense-AZ forecasts that stress 24 hours out, runs it through a real power flow engine, and surfaces the exact nodes at risk along with a recommended operator action for each.
+ 
+---
+ 
+## Highlights
+ 
+### Backend and systems
+ 
+* **Two stage design, zero runtime inference.** All model inference and physics solves run offline in a precompute step that emits static JSON. The browser never calls a Python server, so the frontend is trivially cacheable and scenario switches happen in memory with no network round trip.
+* **Concurrency handled correctly around unsafe code.** OpenDSS wraps a process global singleton that corrupts its state under concurrent access. Every solve is serialized behind a module level lock, so the app stays correct under multiple simultaneous users instead of silently returning garbage.
+* **Crash safe writes.** The precompute step writes each artifact to a temp file and then atomically replaces the target, so an interrupted run can never leave the frontend serving a half written forecast.
+* **A real contract between Python and TypeScript.** The TypeScript types are the single source of truth for the data shape, and the frontend asserts invariants on every payload at load time (heat peak at least 1.3x baseline, EV peak hour within 17 to 22). Bad data fails loud with an error banner rather than rendering a wrong map. Backend and frontend cannot silently drift.
+* **Clean module boundaries.** Training, inference, the scenario engine, the physics solver, and serialization are independent units with narrow interfaces.
+### AI and ML native, not bolted on
+ 
+* **A graph neural network built and trained from scratch.** A Graph WaveNet model (stacked dilated causal temporal convolutions plus a data learned adaptive adjacency) forecasts demand for all 132 nodes in a single forward pass. 59,890 parameters, trained in under 10 minutes on one GPU.
+* **Calibrated uncertainty, no ensemble.** A quantile head trained with pinball loss emits p10/p50/p90 directly, so every forecast ships with a confidence band.
+* **Rolling inference to extend the horizon.** The model natively predicts 6 hours. The pipeline splices its own median predictions back into the input buffer and rolls four times to reach a full 24 hours.
+* **The ML closes a loop with physics.** Forecasts drive per node load overrides into OpenDSS, which returns ANSI C84.1 voltage violations and line loading, which the dashboard turns into ranked risk and concrete actions.
+
+---
+ 
+## Architecture
+ 
+```
+STAGE 1   Offline precompute (Python)
+ 
+  NOAA ISD weather + EIA 930 demand + calendar
+      → features.py builds FeatureBundle [T, 132, 12]
+      → GWNet (model.py, 59,890 params) produces p10/p50/p90 over 6 hours
+      → predictor.py rolls inference 4x to reach a 24 hour horizon
+      → decision.py applies baseline / heat / EV / combined transforms
+      → power_flow.py runs an OpenDSS snapshot solve per scenario
+      → precompute_forecasts.py writes 6 JSON files atomically
+ 
+STAGE 2   Runtime in the browser (zero server side inference)
+ 
+  web/public/data/forecasts/*.json
+      → ScenarioProvider fetches all 6 in parallel
+      → validate.ts asserts heat peak ≥ 1.3x baseline and EV peak hour ∈ [17, 22]
+      → components render: TacticalMap, ForecastRibbon, RiskLeaderboard, PhysicsCheck
+      → scenario switches swap from memory with no refetch
+```
+ 
+---
+ 
+## Key engineering decisions
+ 
+* **Static precompute over a live inference API.** A forward pass plus three OpenDSS solves take a few seconds, and the upstream demand feed publishes with a multi day lag. A live API would add a server, latency, and failure modes for no benefit. Precomputed JSON gives instant page loads and free static hosting.
+* **Raw kW as the model output, not standardized.** An earlier version applied the input scaler to predictions and inflated outputs by roughly 43,000x. I changed the target so the model maps standardized input straight to raw kW, removing the denormalization step where the bug lived. The scaler is retained only for diagnostics.
+* **A process lock around OpenDSS.** Because the engine is a global singleton, the only correct way to expose it to a multi user app is to serialize access. I chose correctness over throughput here deliberately.
+* **Atomic JSON writes.** Cheap insurance against serving a partially written file if precompute is killed mid run.
+* **Snapshot power flow at the peak hour, not a full time series.** Each scenario maps to its forecast peak hour, which is the moment violations actually occur, so a single snapshot answers the question at a fraction of the cost.
+
+---
+
+## Tech stack
+ 
+| Layer | Tools |
 |---|---|
-| `src/gridsense/` | Python package — model, features, predictor, decision layer, power flow |
-| `scripts/` | Data pulls, training entrypoint, NWS fetcher, precompute pipeline |
-| `data/models/gwnet_v0.pt` | Trained checkpoint (263 KB). 200 epochs, NVIDIA A100, 547 s wall |
-| `data/models/metrics.json` | Test/val/train MAE + training history |
-| `data/ieee123/` | IEEE 123-bus test feeder master files + BusCoords |
-| `web/` | Next.js 14 dashboard (tactical-ops UI, served on Vercel) |
-| `hf_space/` | HuggingFace Space Streamlit fallback |
-| `tests/` | pytest unit + integration suites |
-
-## Model card
-
-- **Architecture**: Graph WaveNet (dilated temporal conv + learned adjacency) + 3-quantile head (pinball loss). 59,890 parameters.
-- **Training**: 200 epochs, NVIDIA A100, ~548 s wall, batch 128, seed 1337, cosine LR w/ warmup.
-- **Data**: IEEE 123-bus topology × NOAA KPHX weather × EIA-930 AZPS demand, hourly 2022-06-01 → 2023-10-01 (11,688 timesteps).
-- **Performance (hold-out)**:
-
-  | Metric | Value |
-  |---|---|
-  | Train MAE | 2,370 kW |
-  | Val MAE | 3,525 kW |
-  | Test MAE | 4,574 kW |
-  | Persistence baseline MAE | 5,604 kW |
-  | **Improvement** | **+18.4%** |
-
-## Local run
-
-### Prerequisites
-- Python 3.11
-- Node.js 20+ with `pnpm` (or `npm`)
-- ~2 GB disk for data + venv
-- Optional: NREL API key (for NSRDB irradiance), EIA API key (for EIA-930 demand). NWS does NOT require auth.
-
-### Clone
+| Backend and data | Python 3.11, NetworkX (parses the IEEE 123 feeder into a graph), pandas, NumPy, SciPy, scikit-learn. Data from NOAA ISD weather and the U.S. EIA 930 demand API. |
+| ML | PyTorch, a custom Graph WaveNet with an adaptive adjacency and a 3 quantile head, pinball loss, torch-geometric for topology. |
+| Physics | OpenDSSDirect.py driving snapshot power flow on the canonical IEEE 123 bus feeder. |
+| Frontend | Next.js 14 (App Router, static generation), React 18, TypeScript 5.5, Tailwind, Recharts, Leaflet. A parallel Streamlit operator app uses pydeck and plotly with live solves. |
+| Infra | Static frontend on Vercel, Streamlit app on HuggingFace Spaces, model trained on Colab. |
+ 
+---
+ 
+## Results
+ 
+* **18.4% lower mean absolute error** than a persistence baseline on 1,725 held out test windows from Arizona summers 2022 and 2023 (4,574 kW versus 5,604 kW).
+* **59,890 parameters.** 200 epochs in 547 seconds on one GPU, with cosine learning rate decay and a 10 epoch warmup.
+* **Leakage free split** on the time axis, so no test window overlaps any training input.
+---
+ 
+## Run it locally
+ 
+Backend and the Streamlit app:
+ 
 ```bash
 git clone https://github.com/dc-ai-labs/gridsense-az.git
 cd gridsense-az
-cp .env.example .env    # Fill in keys if you want live pulls
+pip install .
+streamlit run app/streamlit_app.py
 ```
-
-### Python environment
+ 
+Regenerate the forecast JSON the frontend reads:
+ 
 ```bash
-python3.11 -m venv .venv
-source .venv/bin/activate
-pip install -U pip
-pip install -r requirements.txt
+python scripts/precompute_forecasts.py
 ```
-
-### Data dependencies
-The IEEE 123-bus feeder and pre-trained checkpoint are in git. Raw NOAA/EIA pulls are NOT — re-pull them:
-```bash
-.venv/bin/python scripts/pull_noaa.py      # KPHX Phoenix Sky Harbor hourly 2022-06 → 2023-10
-.venv/bin/python scripts/pull_eia930.py    # AZPS balancing-area hourly demand
-# Optional:
-.venv/bin/python scripts/pull_nsrdb.py     # NSRDB irradiance (needs NREL key)
-```
-Or skip and re-use the checkpoint directly via the precompute script below.
-
-### Run the precompute (generates dashboard data from live NWS)
-```bash
-.venv/bin/python scripts/precompute_forecasts.py --output-dir web/public/data/forecasts
-```
-This fetches tomorrow's NWS Phoenix hourly forecast, runs the GWNet in rolling 4×6h inference, applies heat + EV scenario transforms, runs OpenDSS snapshots, and drops 5 JSON files into `web/public/data/forecasts/`.
-
-### Run the dashboard
+ 
+Frontend:
+ 
 ```bash
 cd web
 pnpm install
-pnpm dev        # http://localhost:3000
-# or
-pnpm build && pnpm start   # production build locally
+pnpm dev
 ```
+ 
+A trained checkpoint ships in the repo, so inference works immediately on a fresh clone.
+ 
+---
+ 
+## Roadmap
+ 
+* Wire Captum integrated gradients into the inference path for real per forecast feature attribution.
+* Add a scheduled refresh that pulls new demand and weather and regenerates forecasts automatically.
+* Add authentication and request limiting ahead of any shared deployment.
+* Add formal quantile calibration reporting (coverage and reliability).
 
-### Run tests
-```bash
-.venv/bin/python -m pytest -q                 # unit + integration
-cd web && pnpm build                          # frontend TS + build
-```
-
-## Deploy
-
-### Vercel (dashboard)
-```bash
-cd web
-vercel --prod
-```
-Already linked to `dc-ai-labs-projects/gridsense-az`. CLI picks it up from `.vercel/project.json`.
-
-### HuggingFace Space (ML playground)
-```bash
-bash scripts/deploy_hf_space.sh
-```
-Requires `HF_TOKEN` in `.env`.
-
-## Scenarios — how they work
-
-- **Baseline**: tomorrow's live NWS Phoenix hourly forecast drives the model's exogenous inputs. Encoder sees last 24 h of real history, decoder emits 6 h × 4 rolls = 24 h of p10/p50/p90.
-- **Heat**: `temp_c` in the exogenous feature stream is shifted +5.56 °C (+10 °F) BOTH in the encoder history and in the future inputs. A cooling-load multiplier is applied on top during hours 12-22 local. Heat-scenario peak ≥ 1.35× baseline peak.
-- **EV**: +720 kW added at 20 deterministically-picked residential buses during hours 17-22 local. Equivalent to ~2000 Level-2 EVSE at 7.2 kW evening-ramp behavior. Peak hour always in [17, 22].
-- **OpenDSS**: power-flow snapshot at the scenario's peak hour per scenario — returns bus voltages (p.u.) and line loadings (%) on the IEEE 123 reference feeder to flag topological bottlenecks.
-
-## Architecture in one diagram
-
-```
-           NOAA KPHX  EIA-930 AZPS              NWS Phoenix
-           (historical)  (historical)           (tomorrow)
-                    \       |                   /
-                     \      |                  /
-                      ▼     ▼                 ▼
-                   ┌────────────────────────────┐
-                   │  features.build_hourly()   │
-                   │     [T × N × F]            │
-                   └────────────┬───────────────┘
-                                │
-                                ▼
-                   ┌────────────────────────────┐
-                   │ Graph WaveNet (ckpt v0)    │
-                   │ 59,890 params · pinball    │
-                   │ 24h in → 6h out · roll 4×  │
-                   └────────────┬───────────────┘
-                                │
-                           p10 / p50 / p90 per bus per hour
-                                │
-          ┌─────────────────────┼─────────────────────┐
-          ▼                     ▼                     ▼
-   heat scenario         ev scenario           baseline
-   (+10°F + profile)     (+720kW × 20 buses)   (raw)
-          │                     │                     │
-          └─────────────────────┼─────────────────────┘
-                                │
-                                ▼
-                       OpenDSS snapshot
-                       (voltages, loadings)
-                                │
-                                ▼
-                  web/public/data/forecasts/*.json
-                                │
-                                ▼
-                  Next.js dashboard on Vercel
-                  (map · ribbon · leaderboard · physics)
-```
-
-## License
-
-MIT — see LICENSE.
-
-## Submission team
-
-**Divyansh Chanda** · dchanda1@asu.edu · Arizona State University
+---
+ 
+## Credits
+ 
+Built on the Kersting and EPRI IEEE 123 bus test feeder. Weather from NOAA ISD, demand from the U.S. EIA 930 API. Graph WaveNet architecture adapted from Wu et al., 2019.
