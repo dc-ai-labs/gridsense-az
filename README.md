@@ -5,9 +5,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-Graph%20WaveNet-EE4C2C?logo=pytorch&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-14-000000?logo=nextdotjs&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
 ![OpenDSS](https://img.shields.io/badge/OpenDSS-Power%20Flow-2C7FB8)
-![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?logo=vercel&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 > Built at the ASU Energy Hackathon for the Arizona Public Service "AI for Energy" Challenge.
