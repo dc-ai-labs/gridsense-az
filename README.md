@@ -6,7 +6,6 @@
 ![PyTorch](https://img.shields.io/badge/PyTorch-Graph%20WaveNet-EE4C2C?logo=pytorch&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-14-000000?logo=nextdotjs&logoColor=white)
 ![OpenDSS](https://img.shields.io/badge/OpenDSS-Power%20Flow-2C7FB8)
-![License](https://img.shields.io/badge/License-MIT-green)
 
 > Built at the ASU Energy Hackathon for the Arizona Public Service "AI for Energy" Challenge.
 
